@@ -44,32 +44,39 @@ def main(page: ft.Page):
     def on_progress(d):
         if d['status'] == 'downloading':
             try:
-                # Получаем процент загрузки
-                p_str = d.get('_percent_str')
-                if p_str:
-                    p_val = float(p_str.replace('%', '').strip()) / 100
+                # Получаем сырые данные в байтах вместо строк
+                downloaded = d.get('downloaded_bytes', 0)
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                
+                if total > 0:
+                    p_val = downloaded / total
+                    p_str = f"{p_val * 100:.1f}%"
                 else:
-                    # Расчет вручную, если yt-dlp не отдал готовую строку процента
-                    downloaded = d.get('downloaded_bytes', 0)
-                    total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                    p_val = downloaded / total if total > 0 else 0
-                    p_str = f"{p_val*100:.1f}%"
+                    p_val = 0
+                    p_str = "0%"
 
-                # Обновляем прогресс-бар и текстовый статус
+                # Обновляем визуальные элементы
                 progress_bar.value = p_val
                 status_text.value = f"Загрузка: {p_str}"
                 
-                # Обновляем детальную статистику
-                speed_text.value = d.get('_speed_str', '---')
-                eta_text.value = d.get('_eta_str', '---')
+                # Обновляем статистику (используем .get с запасом)
+                speed_text.value = d.get('_speed_str', '0 MB/s')
+                eta_text.value = d.get('_eta_str', '00:00')
                 
-                # Размер может быть точным или оценочным (для HLS)
+                # Размер файла
                 total_size = d.get('_total_bytes_str') or d.get('_total_bytes_estimate_str', '---')
                 size_text.value = total_size
                 
                 page.update()
             except Exception as ex:
-                print(f"Ошибка в on_progress: {ex}")
+                # Теперь ошибки из-за спецсимволов не будут прерывать работу
+                print(f"Ошибка отображения прогресса: {ex}")
+        
+        elif d['status'] == 'finished':
+            progress_bar.value = 1.0
+            status_text.value = "Завершение: Склейка видео и аудио..."
+            status_text.color = Colors.ORANGE_400
+            page.update()
 
     # 3. Загрузка информации о видео (Preview)
     def load_preview(e):

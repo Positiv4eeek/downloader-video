@@ -46,6 +46,7 @@ class VideoDownloader:
             'postprocessors': postprocessors,
             'quiet': True,
             'no_warnings': True,
+            'no_color': True,  # Добавьте эту строку, чтобы убрать спецсимволы цветов
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
