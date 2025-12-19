@@ -33,10 +33,10 @@ class VideoDownloader:
             return ydl.extract_info(url, download=False)
 
     def download(self, url, save_path, quality="best", audio_only=False, allow_playlist=False):
-        """Основной метод загрузки"""
+        """Основной метод загрузки. Возвращает путь к скачанному файлу."""
         self.is_cancelled = False
         
-        # Настройка формата
+        # Настройка формата (как было)
         if audio_only:
             ydl_format = 'bestaudio/best'
             postprocessors = [{
@@ -56,16 +56,23 @@ class VideoDownloader:
 
         ydl_opts = {
             'format': ydl_format,
-            'progress_hooks': [self._progress_hook], # Используем наш хук с проверкой отмены
+            'progress_hooks': [self._progress_hook],
             'outtmpl': os.path.join(save_path, "%(title)s.%(ext)s"),
             'noplaylist': not allow_playlist,
             'postprocessors': postprocessors,
             'quiet': True,
             'no_warnings': True,
             'no_color': True,
-            # Дополнительные настройки для стабильности
-            'ignoreerrors': True if allow_playlist else False, 
+            'ignoreerrors': True if allow_playlist else False,
+            # Важное дополнение: ограничиваем имена файлов, чтобы Windows не ругался
+            'restrictfilenames': True, 
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+            # Используем extract_info с download=True, чтобы получить метаданные скачанного файла
+            info = ydl.extract_info(url, download=True)
+            
+            # Пытаемся найти путь к файлу
+            if 'requested_downloads' in info:
+                return info['requested_downloads'][0]['filepath']
+            return ydl.prepare_filename(info)

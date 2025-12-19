@@ -1,10 +1,8 @@
 import flet as ft
 from flet import Icons, Colors
 
+# StyledTextField и PrimaryButton оставляем без изменений...
 def StyledTextField(label, hint, icon, on_change=None, suffix=None, on_submit=None):
-    """
-    Поле ввода с поддержкой суффикса (кнопки внутри) и валидации.
-    """
     return ft.TextField(
         label=label,
         hint_text=hint,
@@ -14,19 +12,17 @@ def StyledTextField(label, hint, icon, on_change=None, suffix=None, on_submit=No
         focused_border_color=Colors.BLUE_ACCENT,
         focused_border_width=2,
         prefix_icon=icon,
-        suffix=suffix, # Добавили суффикс (для кнопки вставки)
+        suffix=suffix,
         text_size=14,
         content_padding=20,
         bgcolor=Colors.with_opacity(0.05, Colors.BLACK),
         on_change=on_change,
         on_submit=on_submit,
         animate_size=300,
-        # Настройки для валидации (изначально пустые)
         error_style=ft.TextStyle(size=10),
     )
 
 def PrimaryButton(text, icon, on_click, disabled=False):
-    """Кнопка с градиентным фоном и поддержкой состояния disabled"""
     return ft.Container(
         content=ft.ElevatedButton(
             content=ft.Row(
@@ -56,7 +52,6 @@ def PrimaryButton(text, icon, on_click, disabled=False):
     )
 
 def StatBadge(icon, label, value_ref):
-    """Карточка статистики (без изменений)"""
     return ft.Container(
         content=ft.Row([
             ft.Icon(icon, size=18, color=Colors.BLUE_ACCENT),
@@ -72,30 +67,41 @@ def StatBadge(icon, label, value_ref):
         expand=True
     )
 
-def HistoryCard(title, author, image_url, path, on_open_folder):
-    """Карточка истории с защитой от пустых картинок"""
+# --- НОВЫЙ КОМПОНЕНТ: Элемент очереди ---
+def QueueItem(idx, url, quality, on_remove):
+    return ft.Container(
+        content=ft.Row([
+            ft.Row([
+                ft.Icon(Icons.VIDEO_FILE_ROUNDED, color=Colors.BLUE_GREY_400),
+                ft.Column([
+                    ft.Text(url, size=12, weight="bold", max_lines=1, overflow="ellipsis", width=230),
+                    ft.Text(f"Качество: {quality}", size=10, color=Colors.GREY_500)
+                ], spacing=2)
+            ]),
+            ft.IconButton(
+                Icons.CLOSE_ROUNDED, 
+                icon_color=Colors.RED_400, 
+                tooltip="Удалить из очереди",
+                on_click=lambda _: on_remove(idx)
+            )
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+        padding=10,
+        bgcolor=Colors.with_opacity(0.05, Colors.WHITE),
+        border_radius=10,
+        border=ft.border.all(1, Colors.with_opacity(0.05, Colors.WHITE))
+    )
+
+# --- ОБНОВЛЕННЫЙ КОМПОНЕНТ: Карточка истории ---
+def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete):
+    """
+    item_data: dict с ключами title, author, thumb, path, file_path, url
+    """
+    image_url = item_data.get('thumb')
     
-    # Проверяем, есть ли ссылка на картинку
     if image_url:
-        # Если есть - показываем картинку
-        visual_content = ft.Image(
-            src=image_url, 
-            width=100, 
-            height=60, 
-            fit="cover", 
-            border_radius=8,
-            error_content=ft.Container(bgcolor=Colors.GREY_900) # Если ссылка битая
-        )
+        visual_content = ft.Image(src=image_url, width=100, height=60, fit="cover", border_radius=8, error_content=ft.Container(bgcolor=Colors.GREY_900))
     else:
-        # Если ссылки нет (пустая строка) - показываем заглушку с иконкой
-        visual_content = ft.Container(
-            width=100, 
-            height=60, 
-            border_radius=8, 
-            bgcolor=Colors.with_opacity(0.1, Colors.WHITE),
-            alignment=ft.alignment.center,
-            content=ft.Icon(Icons.MOVIE_CREATION_OUTLINED, color=Colors.BLUE_GREY_400)
-        )
+        visual_content = ft.Container(width=100, height=60, border_radius=8, bgcolor=Colors.with_opacity(0.1, Colors.WHITE), alignment=ft.alignment.center, content=ft.Icon(Icons.MOVIE_CREATION_OUTLINED, color=Colors.BLUE_GREY_400))
 
     return ft.Container(
         padding=12,
@@ -103,26 +109,47 @@ def HistoryCard(title, author, image_url, path, on_open_folder):
         bgcolor=Colors.with_opacity(0.03, Colors.WHITE),
         border=ft.border.all(1, Colors.BLUE_GREY_900),
         content=ft.Row([
-            ft.Container(
-                content=visual_content,
-                shadow=ft.BoxShadow(blur_radius=10, color=Colors.BLACK),
-            ),
+            ft.Container(content=visual_content, shadow=ft.BoxShadow(blur_radius=10, color=Colors.BLACK)),
             ft.Column([
-                ft.Text(title, size=13, weight="bold", max_lines=1, overflow="ellipsis"),
-                ft.Text(author, size=11, color=Colors.BLUE_GREY_400),
+                ft.Text(item_data.get('title', 'Без названия'), size=13, weight="bold", max_lines=1, overflow="ellipsis"),
+                ft.Text(item_data.get('author', 'Неизвестно'), size=11, color=Colors.BLUE_GREY_400),
             ], expand=True, spacing=4),
-            ft.IconButton(
-                icon=Icons.FOLDER_OPEN_ROUNDED,
-                icon_color=Colors.BLUE_GREY_400,
-                hover_color=Colors.with_opacity(0.1, Colors.BLUE_ACCENT),
-                on_click=lambda _: on_open_folder(path)
+            
+            # Меню действий (НОВОЕ)
+            ft.PopupMenuButton(
+                icon=Icons.MORE_VERT_ROUNDED,
+                icon_color=Colors.GREY_400,
+                tooltip="Действия",
+                items=[
+                    ft.PopupMenuItem(
+                        text="Открыть файл", 
+                        icon=Icons.PLAY_ARROW_ROUNDED, 
+                        on_click=lambda _: on_open_file(item_data.get('file_path'))
+                    ),
+                    ft.PopupMenuItem(
+                        text="Открыть папку", 
+                        icon=Icons.FOLDER_OPEN_ROUNDED, 
+                        on_click=lambda _: on_open_folder(item_data.get('path'))
+                    ),
+                    ft.PopupMenuItem(
+                        text="Копировать ссылку", 
+                        icon=Icons.COPY_ROUNDED, 
+                        on_click=lambda _: on_copy_link(item_data.get('url'))
+                    ),
+                    ft.PopupMenuItem(), # Разделитель
+                    ft.PopupMenuItem(
+                        text="Удалить запись", 
+                        icon=Icons.DELETE_OUTLINE_ROUNDED, 
+                        content=ft.Text("Удалить запись", color=Colors.RED_400),
+                        on_click=lambda _: on_delete(item_data)
+                    ),
+                ]
             )
         ]),
         animate=ft.Animation(300, ft.AnimationCurve.DECELERATE)
     )
 
 def SettingTile(icon, title, control):
-    """Новый компонент: строка настройки"""
     return ft.Container(
         content=ft.Row([
             ft.Row([
