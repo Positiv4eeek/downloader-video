@@ -1,7 +1,6 @@
 import flet as ft
 from flet import Icons, Colors
 
-# StyledTextField и PrimaryButton оставляем без изменений...
 def StyledTextField(label, hint, icon, on_change=None, suffix=None, on_submit=None):
     return ft.TextField(
         label=label,
@@ -67,31 +66,52 @@ def StatBadge(icon, label, value_ref):
         expand=True
     )
 
-# --- НОВЫЙ КОМПОНЕНТ: Элемент очереди ---
-def QueueItem(idx, url, quality, on_remove):
+# --- НОВЫЙ КОМПОНЕНТ: Элемент очереди (Исправленный) ---
+def QueueItem(idx, url, quality, status, on_remove):
+    # status: "waiting", "downloading", "done"
+    
+    status_colors = {
+        "waiting": Colors.GREY_500,
+        "downloading": Colors.BLUE_ACCENT,
+        "done": Colors.GREEN,
+    }
+    
+    # ИСПРАВЛЕНИЕ: Иконки должны быть UPPERCASE
+    # Если Icons.DOWNLOADING_ROUNDED не сработает в вашей версии flet,
+    # используйте Icons.DOWNLOADING
+    status_icons = {
+        "waiting": Icons.HOURGLASS_EMPTY_ROUNDED, 
+        "downloading": Icons.DOWNLOADING, 
+        "done": Icons.CHECK_CIRCLE_ROUNDED,
+    }
+
+    # Безопасное получение иконки
+    current_icon = status_icons.get(status, Icons.CIRCLE)
+    current_color = status_colors.get(status, Colors.GREY)
+
     return ft.Container(
         content=ft.Row([
             ft.Row([
-                ft.Icon(Icons.VIDEO_FILE_ROUNDED, color=Colors.BLUE_GREY_400),
+                ft.Icon(current_icon, color=current_color),
                 ft.Column([
-                    ft.Text(url, size=12, weight="bold", max_lines=1, overflow="ellipsis", width=230),
+                    ft.Text(url, size=12, weight="bold", max_lines=1, overflow="ellipsis", width=200),
                     ft.Text(f"Качество: {quality}", size=10, color=Colors.GREY_500)
                 ], spacing=2)
             ]),
             ft.IconButton(
                 Icons.CLOSE_ROUNDED, 
                 icon_color=Colors.RED_400, 
-                tooltip="Удалить из очереди",
-                on_click=lambda _: on_remove(idx)
+                tooltip="Удалить",
+                on_click=lambda _: on_remove(idx),
+                visible=(status != "downloading") # Нельзя удалить то, что качается
             )
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         padding=10,
         bgcolor=Colors.with_opacity(0.05, Colors.WHITE),
         border_radius=10,
-        border=ft.border.all(1, Colors.with_opacity(0.05, Colors.WHITE))
+        border=ft.border.all(1, current_color if status == "downloading" else Colors.TRANSPARENT)
     )
 
-# --- ОБНОВЛЕННЫЙ КОМПОНЕНТ: Карточка истории ---
 def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete):
     """
     item_data: dict с ключами title, author, thumb, path, file_path, url
@@ -115,7 +135,6 @@ def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete
                 ft.Text(item_data.get('author', 'Неизвестно'), size=11, color=Colors.BLUE_GREY_400),
             ], expand=True, spacing=4),
             
-            # Меню действий (НОВОЕ)
             ft.PopupMenuButton(
                 icon=Icons.MORE_VERT_ROUNDED,
                 icon_color=Colors.GREY_400,
@@ -136,7 +155,7 @@ def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete
                         icon=Icons.COPY_ROUNDED, 
                         on_click=lambda _: on_copy_link(item_data.get('url'))
                     ),
-                    ft.PopupMenuItem(), # Разделитель
+                    ft.PopupMenuItem(), 
                     ft.PopupMenuItem(
                         text="Удалить запись", 
                         icon=Icons.DELETE_OUTLINE_ROUNDED, 
