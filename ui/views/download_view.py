@@ -372,7 +372,8 @@ class DownloadView(ft.Column):
             'filename': self.filename_input.value.strip(),
             'subs': self.subs_switch.value,
             'playlist_items': playlist_str, 
-            'sponsor_block': self.app_state.sponsor_block 
+            'sponsor_block': self.app_state.sponsor_block,
+            'thumb': self.preview_img.src if self.preview_img.visible else ""
         })
         self.url_input.value = ""
         self.filename_input.value = ""
@@ -421,7 +422,7 @@ class DownloadView(ft.Column):
                     self.app_state.add_history_item({
                         "title": title,
                         "author": "YouTube", 
-                        "thumb": "", 
+                        "thumb": task.get('thumb', ""),
                         "path": self.app_state.download_path,            
                         "file_path": file_path,      
                         "url": task['url']                
