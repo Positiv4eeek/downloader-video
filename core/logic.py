@@ -50,9 +50,10 @@ class VideoDownloader:
     def download(self, url, save_path, quality="best", audio_only=False, 
                  audio_format="mp3", audio_bitrate="192", 
                  allow_playlist=False, proxy=None, 
-                 cookies_path=None, cookies_browser=None, # <-- NEW
+                 cookies_path=None, cookies_browser=None, 
                  custom_filename=None, 
-                 embed_meta=True, download_subs=False):   # <-- NEW
+                 embed_meta=True, download_subs=False,
+                 use_sponsor_block=False, playlist_items=None): # [UPDATED]
         
         self.is_cancelled = False
         postprocessors = []
@@ -60,11 +61,11 @@ class VideoDownloader:
 
         if audio_only:
             ydl_format = 'bestaudio/best'
-            postprocessors = [{
+            postprocessors.append({
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': audio_format,
                 'preferredquality': audio_bitrate,
-            }]
+            })
         else:
             format_map = {
                 "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
@@ -80,6 +81,14 @@ class VideoDownloader:
             postprocessors.append({'key': 'FFmpegMetadata'})
             if not audio_only or audio_format in ['mp3', 'm4a', 'flac']:
                 postprocessors.append({'key': 'EmbedThumbnail'})
+
+        # --- SPONSORBLOCK [NEW] ---
+        if use_sponsor_block:
+            postprocessors.append({
+                'key': 'SponsorBlock',
+                'categories': ['sponsor', 'intro', 'outro', 'selfpromo', 'preview', 'interaction'],
+                'when': 'after_filter'
+            })
 
         # --- ИМЯ ФАЙЛА ---
         if custom_filename:
@@ -103,12 +112,15 @@ class VideoDownloader:
             'restrictfilenames': True,
             'proxy': proxy if proxy else None,
             
-            # --- НОВЫЕ ОПЦИИ ---
-            'writethumbnail': embed_meta, # Скачать обложку (чтобы встроить)
+            # --- ОПЦИИ ---
+            'writethumbnail': embed_meta,
             'writesubtitles': download_subs,
-            'subtitleslangs': ['all'] if download_subs else None, # Или ['en', 'ru']
-            # 'writeautomaticsub': True, # Если нужны авто-субтитры
+            'subtitleslangs': ['all'] if download_subs else None,
         }
+
+        # [NEW] Выбор элементов плейлиста
+        if playlist_items:
+            ydl_opts['playlist_items'] = playlist_items
 
         # --- COOKIES ---
         if cookies_path and os.path.exists(cookies_path):

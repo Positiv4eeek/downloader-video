@@ -2,7 +2,7 @@
 
 STRINGS = {
     "ru": {
-        "app_title": "YT LOADER PRO v2.5",
+        "app_title": "YT LOADER PRO v2.6",
         "tab_home": "Загрузка",
         "tab_history": "История",
         "tab_settings": "Настройки",
@@ -41,10 +41,11 @@ STRINGS = {
         "monitor_clipboard": "Следить за буфером",
         "subs_switch": "Субтитры",
         "embed_meta_switch": "Вшить метаданные",
+        "sponsor_block_switch": "SponsorBlock (Пропуск рекламы)", # [NEW]
         "system_section": "Система",
     },
     "en": {
-        "app_title": "YT LOADER PRO v2.5",
+        "app_title": "YT LOADER PRO v2.6",
         "tab_home": "Download",
         "tab_history": "History",
         "tab_settings": "Settings",
@@ -83,6 +84,7 @@ STRINGS = {
         "monitor_clipboard": "Monitor Clipboard",
         "subs_switch": "Subtitles",
         "embed_meta_switch": "Embed Metadata",
+        "sponsor_block_switch": "SponsorBlock (Skip segments)", # [NEW]
         "system_section": "System",
     }
 }

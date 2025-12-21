@@ -18,6 +18,10 @@ class DownloadView(ft.Column):
         self.current_downloader = None
         self.downloader_logic = VideoDownloader(None)
         
+        # Плейлист данные
+        self.playlist_entries = []
+        self.selected_indices = []
+
         self.spacing = 15
         self.visible = True
         self.expand = True
@@ -28,24 +32,20 @@ class DownloadView(ft.Column):
         self._setup_ui()
 
     def on_window_event(self, e):
-        # Если окно получило фокус и мониторинг включен
         if e.data == "focus" and self.app_state.monitor_clipboard:
             self.check_clipboard_for_url()
 
     def check_clipboard_for_url(self):
-        # Запускаем проверку асинхронно
         self.page.run_task(self._check_clipboard_async)
 
     async def _check_clipboard_async(self):
         text = await self.page.get_clipboard_async()
         if text and (text.startswith("http://") or text.startswith("https://")):
-            # Проверяем, не вставлен ли уже этот URL
             if text != self.url_input.value:
                 self.url_input.value = text
                 self.validate_input(None)
                 self.url_input.update()
                 
-                # Показываем уведомление
                 self.page.snack_bar = ft.SnackBar(ft.Text(f"URL found: {text}"), duration=2000, bgcolor=Colors.BLUE_900)
                 self.page.snack_bar.open = True
                 self.page.update()
@@ -61,7 +61,7 @@ class DownloadView(ft.Column):
             suffix=self.paste_btn
         )
         
-        # 2. Filename Input (Скрыто по умолчанию)
+        # 2. Filename Input
         self.filename_input = StyledTextField(
             "Имя файла (опционально)", 
             "MyVideo", 
@@ -71,7 +71,16 @@ class DownloadView(ft.Column):
 
         # 3. Preview Section
         self.preview_img = ft.Image(src="", width=120, height=70, fit="cover", border_radius=10, visible=False)
-        self.skeleton = ft.Container(width=120, height=70, bgcolor=Colors.with_opacity(0.1, Colors.WHITE), border_radius=10, visible=False, animate_opacity=500)
+        # Добавляем иконку в скелетон, чтобы было красиво, если картинки нет
+        self.skeleton = ft.Container(
+            width=120, height=70, 
+            bgcolor=Colors.with_opacity(0.1, Colors.WHITE), 
+            border_radius=10, 
+            visible=False, 
+            animate_opacity=500,
+            alignment=ft.alignment.center,
+            content=ft.Icon(Icons.IMAGE_NOT_SUPPORTED_ROUNDED, color=Colors.with_opacity(0.2, Colors.WHITE))
+        )
         self.video_title = ft.Text("", weight="bold", size=14, max_lines=2, overflow="ellipsis")
         
         self.preview_card = ft.Container(
@@ -85,6 +94,15 @@ class DownloadView(ft.Column):
             ])
         )
 
+        # Кнопка выбора видео из плейлиста
+        self.select_videos_btn = ft.ElevatedButton(
+            "Выбрать видео", 
+            icon=Icons.LIST_ALT_ROUNDED, 
+            visible=False,
+            on_click=self.open_playlist_dialog,
+            style=ft.ButtonStyle(bgcolor=Colors.BLUE_GREY_800, color=Colors.WHITE)
+        )
+
         # 4. Options
         self.quality_dd = ft.Dropdown(value="best", options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], border_radius=12, expand=True, text_size=13)
         self.audio_format_dd = ft.Dropdown(value="mp3", options=[ft.dropdown.Option(k) for k in ["mp3", "m4a", "wav"]], width=80, text_size=12, content_padding=5, visible=False)
@@ -93,7 +111,6 @@ class DownloadView(ft.Column):
         self.audio_switch = ft.Switch(label=self.app_state.get_str("audio_only_switch"), value=False, on_change=self.toggle_audio_options)
         self.audio_options_row = ft.Row([self.audio_format_dd, self.audio_bitrate_dd], visible=False, spacing=5)
 
-        # Новые переключатели
         self.subs_switch = ft.Switch(label=self.app_state.get_str("subs_switch"), value=self.app_state.download_subs)
         self.playlist_switch = ft.Switch(label=self.app_state.get_str("playlist_switch"), value=False)
         self.open_folder_switch = ft.Checkbox(label=self.app_state.get_str("open_folder_check"), value=False, label_style=ft.TextStyle(size=12, color=Colors.BLUE_GREY_200))
@@ -124,11 +141,12 @@ class DownloadView(ft.Column):
 
         self.controls = [
             self.url_input, 
-            self.filename_input, # Поле имени файла
+            self.filename_input,
             self.preview_card,
+            self.select_videos_btn,
             ft.Row([self.quality_dd]),
             ft.Row([self.audio_switch, self.audio_options_row], alignment=MainAxisAlignment.SPACE_BETWEEN),
-            ft.Row([self.playlist_switch, self.subs_switch], alignment=MainAxisAlignment.SPACE_BETWEEN), # Плейлист и Сабы в ряд
+            ft.Row([self.playlist_switch, self.subs_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
             self.open_folder_switch,
             self.download_btn, self.progress_container
         ]
@@ -156,8 +174,18 @@ class DownloadView(ft.Column):
                 border_radius=ft.border_radius.only(top_left=20, top_right=20)
             )
         )
+        
+        # Диалог выбора плейлиста
+        self.playlist_dialog = ft.AlertDialog(
+            title=ft.Text("Выберите видео"),
+            content=ft.Container(width=400, height=300),
+            actions=[
+                ft.TextButton("Отмена", on_click=lambda e: self.close_dialog(False)),
+                ft.TextButton("Выбрать", on_click=lambda e: self.close_dialog(True)),
+            ],
+            modal=True
+        )
 
-    # --- МЕТОД ОБНОВЛЕНИЯ ЯЗЫКА ---
     def update_locale(self):
         self.url_input.label = self.app_state.get_str("url_label")
         self.url_input.hint_text = self.app_state.get_str("url_hint")
@@ -202,7 +230,6 @@ class DownloadView(ft.Column):
             for i, item in enumerate(self.download_queue):
                 status = "waiting"
                 if i == 0 and self.is_processing: status = "downloading"
-                
                 self.queue_list_view.controls.append(
                     QueueItem(i, item, status, self.remove_from_queue, self.move_item_up, self.move_item_down, count)
                 )
@@ -231,11 +258,13 @@ class DownloadView(ft.Column):
             self.download_btn.disabled = False
             self.preview_card.visible = False
             self.filename_input.visible = False
+            self.select_videos_btn.visible = False
         elif not (val.startswith("http://") or val.startswith("https://")):
             self.url_input.error_text = self.app_state.get_str("error_url")
             self.download_btn.disabled = True
             self.preview_card.visible = False
             self.filename_input.visible = False
+            self.select_videos_btn.visible = False
         else:
             self.url_input.error_text = None
             self.download_btn.disabled = False
@@ -247,6 +276,7 @@ class DownloadView(ft.Column):
         self.skeleton.visible = True
         self.preview_img.visible = False
         self.filename_input.visible = False
+        self.select_videos_btn.visible = False
         self.video_title.value = self.app_state.get_str("quality_loading")
         self.quality_dd.options = [ft.dropdown.Option("best", self.app_state.get_str("quality_best"))]
         self.quality_dd.value = "best"
@@ -254,7 +284,6 @@ class DownloadView(ft.Column):
 
         def load_task():
             try:
-                # Получаем инфо с учетом выбранного браузера
                 info = self.downloader_logic.get_video_info(
                     url, 
                     proxy=self.app_state.proxy_url, 
@@ -262,14 +291,33 @@ class DownloadView(ft.Column):
                     cookies_browser=self.app_state.cookies_browser
                 )
                 self.video_title.value = info.get('title', 'Video')
-                self.preview_img.src = info.get('thumbnail', '')
                 
-                # Автозаполнение имени файла
+                # --- ИСПРАВЛЕНИЕ: Проверка наличия тамбнейла ---
+                thumb_url = info.get('thumbnail')
+                if thumb_url:
+                    self.preview_img.src = thumb_url
+                    self.preview_img.visible = True
+                    self.skeleton.visible = False
+                else:
+                    self.preview_img.visible = False
+                    self.skeleton.visible = True # Оставляем серый фон с иконкой
+                # -----------------------------------------------
+
+                # Логика плейлиста
+                if 'entries' in info:
+                    self.playlist_entries = list(info['entries'])
+                    self.select_videos_btn.text = f"Выбрано: {len(self.playlist_entries)} / {len(self.playlist_entries)}"
+                    self.select_videos_btn.visible = True
+                    self.playlist_switch.value = True
+                    self.selected_indices = [] # Пусто = все
+                else:
+                    self.select_videos_btn.visible = False
+                    self.playlist_entries = []
+
                 safe_title = re.sub(r'[<>:"/\\|?*]', '', info.get('title', ''))
                 self.filename_input.value = safe_title
                 self.filename_input.visible = True
 
-                # Форматы
                 formats = info.get('formats', [])
                 resolutions = set()
                 for f in formats:
@@ -283,18 +331,60 @@ class DownloadView(ft.Column):
                         new_options.append(ft.dropdown.Option(f"{res}p", f"{res}p"))
                     self.quality_dd.options = new_options
 
-                self.skeleton.visible = False
-                self.preview_img.visible = True
                 self.update()
             except Exception as e:
                 self.video_title.value = self.app_state.get_str("error_generic") + f": {str(e)[:20]}"
                 self.skeleton.visible = True
+                self.preview_img.visible = False
                 self.update()
 
         threading.Thread(target=load_task, daemon=True).start()
 
+    # Открытие диалога
+    def open_playlist_dialog(self, e):
+        if not self.playlist_entries: return
+        
+        checkboxes = []
+        for i, entry in enumerate(self.playlist_entries):
+            idx = i + 1
+            if not entry: continue
+            title = entry.get('title', f'Video {idx}')
+            is_checked = (not self.selected_indices) or (str(idx) in self.selected_indices)
+            checkboxes.append(
+                ft.Checkbox(label=f"{idx}. {title}", value=is_checked, data=str(idx))
+            )
+            
+        list_view = ft.ListView(controls=checkboxes, expand=True)
+        self.playlist_dialog.content = list_view
+        self.page.dialog = self.playlist_dialog
+        self.playlist_dialog.open = True
+        self.page.update()
+
+    # Закрытие диалога
+    def close_dialog(self, save):
+        if save:
+            lv = self.playlist_dialog.content
+            selected = []
+            for cb in lv.controls:
+                if cb.value:
+                    selected.append(cb.data)
+            
+            if len(selected) == len(self.playlist_entries) or len(selected) == 0:
+                self.selected_indices = []
+                self.select_videos_btn.text = f"Все ({len(self.playlist_entries)})"
+            else:
+                self.selected_indices = selected
+                self.select_videos_btn.text = f"Выбрано: {len(selected)}"
+        
+        self.playlist_dialog.open = False
+        self.page.update()
+
     def add_to_queue(self, e):
         if self.url_input.error_text or not self.url_input.value: return
+        
+        # Формируем строку плейлиста
+        playlist_str = ",".join(self.selected_indices) if self.selected_indices else None
+
         self.download_queue.append({
             'url': self.url_input.value,
             'quality': self.quality_dd.value,
@@ -303,12 +393,16 @@ class DownloadView(ft.Column):
             'audio_bitrate': self.audio_bitrate_dd.value,
             'playlist': self.playlist_switch.value,
             'filename': self.filename_input.value.strip(),
-            'subs': self.subs_switch.value
+            'subs': self.subs_switch.value,
+            'playlist_items': playlist_str, 
+            'sponsor_block': self.app_state.sponsor_block 
         })
         self.url_input.value = ""
         self.filename_input.value = ""
         self.filename_input.visible = False
         self.preview_card.visible = False
+        self.select_videos_btn.visible = False
+        self.selected_indices = []
         self.update_queue_ui()
         self.show_msg("Added to queue")
         
@@ -330,7 +424,6 @@ class DownloadView(ft.Column):
             self.current_downloader = VideoDownloader(self.on_progress)
             
             try:
-                # Передаем все новые параметры в загрузчик
                 downloaded_files = self.current_downloader.download(
                     task['url'], self.app_state.download_path, 
                     quality=task['quality'], 
@@ -340,25 +433,20 @@ class DownloadView(ft.Column):
                     allow_playlist=task['playlist'],
                     proxy=self.app_state.proxy_url,
                     cookies_path=self.app_state.cookies_path,
-                    cookies_browser=self.app_state.cookies_browser, # <-- Браузер
-                    custom_filename=task.get('filename'),           # <-- Имя файла
-                    embed_meta=self.app_state.embed_meta,           # <-- Метаданные
-                    download_subs=task.get('subs', False)           # <-- Субтитры
-                )
-                
-                info = self.downloader_logic.get_video_info(
-                    task['url'], 
-                    self.app_state.proxy_url, 
-                    self.app_state.cookies_path, 
-                    self.app_state.cookies_browser
+                    cookies_browser=self.app_state.cookies_browser,
+                    custom_filename=task.get('filename'),
+                    embed_meta=self.app_state.embed_meta,
+                    download_subs=task.get('subs', False),
+                    use_sponsor_block=task.get('sponsor_block', False),
+                    playlist_items=task.get('playlist_items')
                 )
                 
                 for file_path in downloaded_files:
                     title = os.path.basename(file_path)
                     self.app_state.add_history_item({
                         "title": title,
-                        "author": info.get('uploader', 'YouTube'),
-                        "thumb": info.get('thumbnail', ''), 
+                        "author": "YouTube", 
+                        "thumb": "", 
                         "path": self.app_state.download_path,            
                         "file_path": file_path,      
                         "url": task['url']                

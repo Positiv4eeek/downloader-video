@@ -28,7 +28,7 @@ class SettingsView(ft.Column):
             on_change=self.change_language
         )
         
-        # --- NEW: Выбор браузера для куки ---
+        # Выбор браузера для куки
         self.browser_dd = ft.Dropdown(
             value=self.app_state.cookies_browser,
             options=[
@@ -44,6 +44,9 @@ class SettingsView(ft.Column):
 
         self.monitor_clipboard_switch = ft.Switch(value=self.app_state.monitor_clipboard, on_change=self.toggle_clipboard)
         self.embed_meta_switch = ft.Switch(value=self.app_state.embed_meta, on_change=lambda e: self.app_state.set_embed_meta(e.control.value))
+        
+        # [NEW] Переключатель SponsorBlock
+        self.sb_switch = ft.Switch(value=self.app_state.sponsor_block, on_change=lambda e: self.app_state.set_sponsor_block(e.control.value))
 
         self.update_btn = ft.ElevatedButton(
             self.app_state.get_str("update_ytdlp_btn"), 
@@ -59,7 +62,7 @@ class SettingsView(ft.Column):
         
         self.cookies_display = ft.Text(os.path.basename(self.app_state.cookies_path) if self.app_state.cookies_path else "Not selected", size=12, color=Colors.BLUE_GREY_400, max_lines=1, overflow="ellipsis", width=150, text_align="right")
 
-        # --- Ссылки для обновления локализации ---
+        # --- Текстовые метки ---
         self.title_text = ft.Text(self.app_state.get_str("settings_title"), size=20, weight="bold")
         self.lang_label = ft.Text(self.app_state.get_str("lang_label"), size=14, weight="w500")
         self.theme_label = ft.Text(self.app_state.get_str("theme_dark"), size=14, weight="w500")
@@ -69,6 +72,7 @@ class SettingsView(ft.Column):
         self.history_btn_text = ft.Text(self.app_state.get_str("clear_history"), weight="bold", size=15)
         self.clipboard_label = ft.Text(self.app_state.get_str("monitor_clipboard"), size=14, weight="w500")
         self.meta_label = ft.Text(self.app_state.get_str("embed_meta_switch"), size=14, weight="w500")
+        self.sb_label = ft.Text(self.app_state.get_str("sponsor_block_switch"), size=14, weight="w500") # [NEW]
         self.system_label = ft.Text(self.app_state.get_str("system_section"), size=16, weight="bold")
 
         self.controls = [
@@ -88,6 +92,7 @@ class SettingsView(ft.Column):
             self.system_label,
             self._build_tile(Icons.PASTE_ROUNDED, self.clipboard_label, self.monitor_clipboard_switch),
             self._build_tile(Icons.IMAGE_ROUNDED, self.meta_label, self.embed_meta_switch),
+            self._build_tile(Icons.CUT_ROUNDED, self.sb_label, self.sb_switch), # [NEW]
             
             ft.Container(
                 content=ft.Row([
@@ -127,6 +132,7 @@ class SettingsView(ft.Column):
         self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
         self.clipboard_label.value = self.app_state.get_str("monitor_clipboard")
         self.meta_label.value = self.app_state.get_str("embed_meta_switch")
+        self.sb_label.value = self.app_state.get_str("sponsor_block_switch") # [NEW]
         self.system_label.value = self.app_state.get_str("system_section")
         self.update()
 
@@ -155,7 +161,6 @@ class SettingsView(ft.Column):
 
         threading.Thread(target=run_update, daemon=True).start()
 
-    # (Остальные методы без изменений: change_language, toggle_theme, change_path_result, etc.)
     def change_language(self, e):
         self.app_state.set_language(self.lang_dd.value)
     def toggle_theme(self, e):
