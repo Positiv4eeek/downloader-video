@@ -20,29 +20,37 @@ class VideoDownloader:
         if self.progress_callback:
             self.progress_callback(d)
 
-    def get_video_info(self, url):
-        """Получает метаданные видео"""
+    def get_video_info(self, url, proxy=None, cookies=None):
+        """Получает метаданные видео с учетом прокси и куки"""
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'format': 'best',
-            # Игнорируем ошибки плейлистов при предпросмотре
-            'extract_flat': 'in_playlist' 
+            'extract_flat': 'in_playlist',
         }
+        if proxy: ydl_opts['proxy'] = proxy
+        if cookies: ydl_opts['cookiefile'] = cookies
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
 
-    def download(self, url, save_path, quality="best", audio_only=False, allow_playlist=False):
-        """Основной метод загрузки. Возвращает путь к скачанному файлу."""
+    def download(self, url, save_path, quality="best", audio_only=False, 
+                 audio_format="mp3", audio_bitrate="192", 
+                 allow_playlist=False, proxy=None, cookies_path=None):
+        """
+        Основной метод загрузки. Возвращает список путей к скачанным файлам.
+        """
         self.is_cancelled = False
         
-        # Настройка формата (как было)
+        # Настройка формата
+        postprocessors = []
+        ydl_format = "best"
+
         if audio_only:
             ydl_format = 'bestaudio/best'
             postprocessors = [{
                 'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
+                'preferredcodec': audio_format,
+                'preferredquality': audio_bitrate,
             }]
         else:
             format_map = {
@@ -52,7 +60,6 @@ class VideoDownloader:
                 "best": "best"
             }
             ydl_format = format_map.get(quality, "best")
-            postprocessors = []
 
         ydl_opts = {
             'format': ydl_format,
@@ -64,15 +71,35 @@ class VideoDownloader:
             'no_warnings': True,
             'no_color': True,
             'ignoreerrors': True if allow_playlist else False,
-            # Важное дополнение: ограничиваем имена файлов, чтобы Windows не ругался
-            'restrictfilenames': True, 
+            'restrictfilenames': True,
+            'proxy': proxy if proxy else None,
+            'cookiefile': cookies_path if cookies_path and os.path.exists(cookies_path) else None,
         }
 
+        downloaded_files = []
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Используем extract_info с download=True, чтобы получить метаданные скачанного файла
+            # extract_info с download=True запускает скачивание
             info = ydl.extract_info(url, download=True)
             
-            # Пытаемся найти путь к файлу
-            if 'requested_downloads' in info:
-                return info['requested_downloads'][0]['filepath']
-            return ydl.prepare_filename(info)
+            # Логика сбора путей файлов (поддержка плейлистов и одиночных видео)
+            if 'entries' in info:
+                # Это плейлист
+                for entry in info['entries']:
+                    if not entry: continue
+                    if 'requested_downloads' in entry:
+                        for d in entry['requested_downloads']:
+                            downloaded_files.append(d['filepath'])
+                    else:
+                        # Пытаемся предсказать имя файла, если оно не вернулось явно
+                        try:
+                            downloaded_files.append(ydl.prepare_filename(entry))
+                        except: pass
+            else:
+                # Одиночное видео
+                if 'requested_downloads' in info:
+                    downloaded_files.append(info['requested_downloads'][0]['filepath'])
+                else:
+                    downloaded_files.append(ydl.prepare_filename(info))
+            
+            return downloaded_files

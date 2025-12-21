@@ -1,6 +1,6 @@
 import flet as ft
 import threading
-import time
+import os
 from flet import Icons, Colors, MainAxisAlignment
 from core.logic import VideoDownloader, DownloadCancelled
 from core.utils import open_path
@@ -23,8 +23,15 @@ class DownloadView(ft.Column):
         self._setup_ui()
 
     def _setup_ui(self):
-        self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Вставить", icon_color=Colors.BLUE_ACCENT, on_click=self.paste_from_clipboard)
-        self.url_input = StyledTextField("URL Видео", "Ссылка...", Icons.LINK_ROUNDED, on_change=self.validate_input, suffix=self.paste_btn)
+        # Локализованные тексты
+        self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Paste", icon_color=Colors.BLUE_ACCENT, on_click=self.paste_from_clipboard)
+        self.url_input = StyledTextField(
+            self.app_state.get_str("url_label"), 
+            self.app_state.get_str("url_hint"), 
+            Icons.LINK_ROUNDED, 
+            on_change=self.validate_input, 
+            suffix=self.paste_btn
+        )
         
         # --- Скелетон и Превью ---
         self.preview_img = ft.Image(src="", width=120, height=70, fit="cover", border_radius=10, visible=False)
@@ -42,46 +49,71 @@ class DownloadView(ft.Column):
             ])
         )
 
-        self.quality_dd = ft.Dropdown(value="best", options=[ft.dropdown.Option(k,v) for k,v in {"best":"Макс.","1080p":"1080p","720p":"720p"}.items()], border_radius=12, expand=True)
-        self.audio_switch = ft.Switch(label="MP3", value=False)
-        self.playlist_switch = ft.Switch(label="Плейлист", value=False)
-        self.open_folder_switch = ft.Checkbox(label="Открыть папку после завершения", value=False, label_style=ft.TextStyle(size=12, color=Colors.BLUE_GREY_200))
-
-        self.download_btn = PrimaryButton("ДОБАВИТЬ", Icons.ADD_TO_PHOTOS_ROUNDED, self.add_to_queue)
+        # Выбор качества (изначально только Best, потом подгрузим)
+        self.quality_dd = ft.Dropdown(
+            value="best", 
+            options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], 
+            border_radius=12, 
+            expand=True,
+            text_size=13
+        )
         
-        # Прогресс
+        # --- Настройки Аудио ---
+        self.audio_format_dd = ft.Dropdown(value="mp3", options=[ft.dropdown.Option(k) for k in ["mp3", "m4a", "wav"]], width=80, text_size=12, content_padding=5, visible=False)
+        self.audio_bitrate_dd = ft.Dropdown(value="192", options=[ft.dropdown.Option(k, f"{k}k") for k in ["128", "192", "320"]], width=80, text_size=12, content_padding=5, visible=False)
+        
+        self.audio_switch = ft.Switch(label=self.app_state.get_str("audio_only_switch"), value=False, on_change=self.toggle_audio_options)
+        self.audio_options_row = ft.Row([self.audio_format_dd, self.audio_bitrate_dd], visible=False, spacing=5)
+
+        self.playlist_switch = ft.Switch(label=self.app_state.get_str("playlist_switch"), value=False)
+        self.open_folder_switch = ft.Checkbox(label=self.app_state.get_str("open_folder_check"), value=False, label_style=ft.TextStyle(size=12, color=Colors.BLUE_GREY_200))
+
+        self.download_btn = PrimaryButton(self.app_state.get_str("add_btn"), Icons.ADD_TO_PHOTOS_ROUNDED, self.add_to_queue)
+        
+        # --- Прогресс Бар ---
         self.speed_text = ft.Text("0 MB/s", size=13, weight="bold")
-        self.size_text = ft.Text("---", size=13, weight="bold")
+        self.eta_text = ft.Text("--:--", size=13, weight="bold") # ETA
+        
         self.progress_bar = ft.ProgressBar(value=0, color=Colors.BLUE_ACCENT, height=6, border_radius=10)
-        self.status_text = ft.Text("Готов", size=12, color=Colors.BLUE_GREY_400)
-        self.cancel_btn = ft.ElevatedButton("СТОП", icon=Icons.CANCEL, bgcolor=Colors.RED_700, color="white", visible=False, on_click=self.cancel_current)
+        self.status_text = ft.Text(self.app_state.get_str("status_ready"), size=12, color=Colors.BLUE_GREY_400)
+        self.cancel_btn = ft.ElevatedButton("STOP", icon=Icons.CANCEL, bgcolor=Colors.RED_700, color="white", visible=False, on_click=self.cancel_current)
         
         self.queue_btn = ft.TextButton(text="", icon=Icons.LIST_ROUNDED, icon_color=Colors.ORANGE_ACCENT, visible=False, on_click=self.show_queue_modal)
 
-        self.progress_container = ft.Container(visible=True, padding=20, border_radius=20, bgcolor=Colors.with_opacity(0.02, Colors.WHITE),
-                                          content=ft.Column([
-                                              ft.Row([self.queue_btn], alignment=MainAxisAlignment.END), 
-                                              ft.Row([StatBadge(Icons.SPEED_ROUNDED, "СКОРОСТЬ", self.speed_text), StatBadge(Icons.SD_STORAGE_ROUNDED, "РАЗМЕР", self.size_text)], spacing=15),
-                                              self.progress_bar,
-                                              ft.Row([self.status_text, self.cancel_btn], alignment=MainAxisAlignment.SPACE_BETWEEN)
-                                          ]))
+        self.progress_container = ft.Container(
+            visible=True, padding=20, border_radius=20, bgcolor=Colors.with_opacity(0.02, Colors.WHITE),
+            content=ft.Column([
+                ft.Row([self.queue_btn], alignment=MainAxisAlignment.END), 
+                ft.Row([
+                    StatBadge(Icons.SPEED_ROUNDED, "SPEED", self.speed_text), 
+                    StatBadge(Icons.TIMER_ROUNDED, self.app_state.get_str("eta"), self.eta_text) # ETA Badge
+                ], spacing=15),
+                self.progress_bar,
+                ft.Row([self.status_text, self.cancel_btn], alignment=MainAxisAlignment.SPACE_BETWEEN)
+            ])
+        )
 
         self.controls = [
             self.url_input, self.preview_card,
             ft.Row([self.quality_dd]),
-            ft.Row([self.audio_switch, self.playlist_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
-            self.open_folder_switch, # Добавили чекбокс
+            ft.Row([self.audio_switch, self.audio_options_row], alignment=MainAxisAlignment.SPACE_BETWEEN),
+            ft.Row([self.playlist_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
+            self.open_folder_switch,
             self.download_btn, self.progress_container
         ]
 
+        # --- Модальное окно очереди ---
         self.queue_list_view = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
         self.queue_bottom_sheet = ft.BottomSheet(
             ft.Container(
                 ft.Column([
-                    ft.Text("Очередь загрузки", size=20, weight="bold"),
+                    ft.Row([
+                        ft.Text(self.app_state.get_str("queue_title"), size=20, weight="bold"),
+                        ft.IconButton(Icons.DELETE_SWEEP_ROUNDED, tooltip=self.app_state.get_str("clear_queue"), on_click=self.clear_queue_all)
+                    ], alignment=MainAxisAlignment.SPACE_BETWEEN),
                     ft.Divider(),
                     ft.Container(self.queue_list_view, height=300), 
-                    ft.ElevatedButton("Закрыть", on_click=lambda _: self.page.close_bottom_sheet())
+                    ft.ElevatedButton("Close", on_click=lambda _: self.page.close_bottom_sheet())
                 ]),
                 padding=20,
                 bgcolor=Colors.GREY_900, 
@@ -89,7 +121,16 @@ class DownloadView(ft.Column):
             )
         )
 
-    # --- Логика ---
+    # --- ЛОГИКА ---
+    
+    def toggle_audio_options(self, e):
+        visible = self.audio_switch.value
+        self.audio_options_row.visible = visible
+        self.audio_format_dd.visible = visible
+        self.audio_bitrate_dd.visible = visible
+        self.quality_dd.disabled = visible
+        self.update()
+
     async def paste_from_clipboard(self, e):
         text = await self.page.get_clipboard_async()
         if text:
@@ -104,35 +145,58 @@ class DownloadView(ft.Column):
             self.download_btn.disabled = False
             self.preview_card.visible = False
         elif not (val.startswith("http://") or val.startswith("https://")):
-            self.url_input.error_text = "Некорректная ссылка"
+            self.url_input.error_text = self.app_state.get_str("error_url")
             self.download_btn.disabled = True
             self.preview_card.visible = False
         else:
             self.url_input.error_text = None
             self.download_btn.disabled = False
-            # Запускаем загрузку превью в отдельном потоке
             self.start_preview_loading(val)
         self.update()
 
     def start_preview_loading(self, url):
-        # Показываем Скелетон
         self.preview_card.visible = True
         self.skeleton.visible = True
         self.preview_img.visible = False
-        self.video_title.value = "Загрузка информации..."
+        self.video_title.value = self.app_state.get_str("quality_loading")
+        # Сброс списка качеств
+        self.quality_dd.options = [ft.dropdown.Option("best", self.app_state.get_str("quality_best"))]
+        self.quality_dd.value = "best"
         self.update()
 
         def load_task():
             try:
-                info = self.downloader_logic.get_video_info(url)
-                # Возвращаемся в UI поток для обновления
+                info = self.downloader_logic.get_video_info(
+                    url, 
+                    proxy=self.app_state.proxy_url, 
+                    cookies=self.app_state.cookies_path
+                )
                 self.video_title.value = info.get('title', 'Video')
                 self.preview_img.src = info.get('thumbnail', '')
+                
+                # --- ДИНАМИЧЕСКИЕ ФОРМАТЫ ---
+                formats = info.get('formats', [])
+                # Извлекаем уникальные разрешения (height) для видео
+                resolutions = set()
+                for f in formats:
+                    if f.get('vcodec') != 'none' and f.get('height'):
+                        resolutions.add(f.get('height'))
+                
+                # Сортируем от большего к меньшему
+                sorted_res = sorted(list(resolutions), reverse=True)
+                
+                # Обновляем список, если нашли форматы
+                if sorted_res:
+                    new_options = [ft.dropdown.Option("best", self.app_state.get_str("quality_best"))]
+                    for res in sorted_res:
+                        new_options.append(ft.dropdown.Option(f"{res}p", f"{res}p"))
+                    self.quality_dd.options = new_options
+
                 self.skeleton.visible = False
                 self.preview_img.visible = True
                 self.update()
             except Exception as e:
-                self.video_title.value = "Ошибка получения данных"
+                self.video_title.value = self.app_state.get_str("error_generic") + f": {str(e)[:20]}"
                 self.skeleton.visible = True
                 self.update()
 
@@ -144,25 +208,26 @@ class DownloadView(ft.Column):
             'url': self.url_input.value,
             'quality': self.quality_dd.value,
             'audio_only': self.audio_switch.value,
+            'audio_format': self.audio_format_dd.value,
+            'audio_bitrate': self.audio_bitrate_dd.value,
             'playlist': self.playlist_switch.value
         })
         self.url_input.value = ""
-        self.preview_card.visible = False # Скрываем превью после добавления
+        self.preview_card.visible = False
         self.update_queue_ui()
-        self.show_msg("Добавлено в очередь")
+        self.show_msg("Added to queue")
         if not self.is_processing: threading.Thread(target=self.process_queue, daemon=True).start()
 
     def update_queue_ui(self):
         count = len(self.download_queue)
-        self.queue_btn.text = f"В очереди: {count}"
+        self.queue_btn.text = f"{count}"
         self.queue_btn.visible = count > 0
         
         self.queue_list_view.controls.clear()
         if not self.download_queue:
-            self.queue_list_view.controls.append(ft.Text("Очередь пуста", color=Colors.GREY))
+            self.queue_list_view.controls.append(ft.Text(self.app_state.get_str("queue_empty"), color=Colors.GREY))
         else:
             for i, item in enumerate(self.download_queue):
-                # Определяем статус для карточки
                 status = "waiting"
                 if i == 0 and self.is_processing:
                     status = "downloading"
@@ -176,6 +241,14 @@ class DownloadView(ft.Column):
         if 0 <= idx < len(self.download_queue):
             del self.download_queue[idx]
             self.update_queue_ui()
+
+    def clear_queue_all(self, e):
+        # Удаляем все, кроме текущей загрузки (элемент 0, если is_processing)
+        if self.is_processing and self.download_queue:
+            self.download_queue = [self.download_queue[0]]
+        else:
+            self.download_queue = []
+        self.update_queue_ui()
 
     def show_queue_modal(self, e):
         is_dark = self.app_state.theme_mode == "dark"
@@ -194,61 +267,80 @@ class DownloadView(ft.Column):
             self.update_queue_ui()
             
             self.cancel_btn.visible = True
-            self.status_text.value = f"Загрузка..."
+            self.status_text.value = self.app_state.get_str("status_downloading")
             self.progress_bar.value = None
             self.page.update()
 
             self.current_downloader = VideoDownloader(self.on_progress)
             
             try:
-                final_filename = self.current_downloader.download(
+                downloaded_files = self.current_downloader.download(
                     task['url'], self.app_state.download_path, 
-                    quality=task['quality'], audio_only=task['audio_only'], allow_playlist=task['playlist']
+                    quality=task['quality'], 
+                    audio_only=task['audio_only'],
+                    audio_format=task.get('audio_format', 'mp3'),
+                    audio_bitrate=task.get('audio_bitrate', '192'),
+                    allow_playlist=task['playlist'],
+                    proxy=self.app_state.proxy_url,
+                    cookies_path=self.app_state.cookies_path
                 )
                 
-                # Добавляем в историю
-                info = self.downloader_logic.get_video_info(task['url'])
-                self.app_state.add_history_item({
-                    "title": info.get('title', 'Видео'), 
-                    "author": info.get('uploader', 'YouTube'),
-                    "thumb": info.get('thumbnail', ''), 
-                    "path": self.app_state.download_path,            
-                    "file_path": final_filename,      
-                    "url": task['url']                
-                })
-                self.show_msg("✅ Готово!", Colors.GREEN_700)
+                # Метаданные
+                info = self.downloader_logic.get_video_info(task['url'], self.app_state.proxy_url, self.app_state.cookies_path)
                 
-                # ОТКРЫТИЕ ПАПКИ ЕСЛИ НУЖНО
+                for file_path in downloaded_files:
+                    title = os.path.basename(file_path)
+                    if not task['playlist']:
+                        title = info.get('title', title)
+
+                    self.app_state.add_history_item({
+                        "title": title,
+                        "author": info.get('uploader', 'YouTube'),
+                        "thumb": info.get('thumbnail', ''), 
+                        "path": self.app_state.download_path,            
+                        "file_path": file_path,      
+                        "url": task['url']                
+                    })
+                
+                self.show_msg(self.app_state.get_str("status_finished"), Colors.GREEN_700)
+                
                 if self.open_folder_switch.value:
                     open_path(self.app_state.download_path)
                 
-            except DownloadCancelled: self.show_msg("⏹️ Отменено", Colors.ORANGE_700)
-            except Exception as ex: self.show_msg(f"❌ Ошибка: {str(ex)[:50]}", Colors.RED_700)
+            except DownloadCancelled: self.show_msg("Cancelled", Colors.ORANGE_700)
+            except Exception as ex: self.show_msg(f"Error: {str(ex)[:50]}", Colors.RED_700)
             finally:
                 self.current_downloader = None
                 self.speed_text.value = "0 MB/s"
+                self.eta_text.value = "--:--"
                 self.progress_bar.value = 0
                 if self.download_queue: self.download_queue.pop(0)
                 self.update_queue_ui()
         
         self.is_processing = False
         self.cancel_btn.visible = False
-        self.status_text.value = "Очередь пуста"
+        self.status_text.value = self.app_state.get_str("status_ready")
         self.page.update()
 
     def on_progress(self, d):
         if d['status'] == 'downloading':
             try:
-                p = d.get('downloaded_bytes', 0) / (d.get('total_bytes') or d.get('total_bytes_estimate', 1))
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 1)
+                downloaded = d.get('downloaded_bytes', 0)
+                p = downloaded / total
+                
                 self.progress_bar.value = p
                 self.status_text.value = f"{p*100:.1f}%"
                 self.speed_text.value = d.get('_speed_str', '--')
-                self.size_text.value = d.get('_total_bytes_str', '--')
+                
+                # --- ETA (Время) ---
+                self.eta_text.value = d.get('_eta_str', '--:--')
+                
                 self.page.update()
             except: pass
         elif d['status'] == 'finished':
             self.progress_bar.value = 1.0
-            self.status_text.value = "Сборка..."
+            self.status_text.value = self.app_state.get_str("status_processing")
             self.page.update()
 
     def show_msg(self, text, color=Colors.BLUE_ACCENT):

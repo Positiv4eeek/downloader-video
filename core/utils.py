@@ -1,6 +1,7 @@
 import os
 import platform
 import subprocess
+import shutil
 
 def open_path(path, is_file=False):
     """Универсальная открывалка файлов и папок"""
@@ -18,3 +19,7 @@ def open_path(path, is_file=False):
             subprocess.Popen(["xdg-open", target])
     except Exception as e:
         print(f"Error opening path: {e}")
+
+def check_ffmpeg():
+    """Проверяет наличие FFmpeg в системе"""
+    return shutil.which("ffmpeg") is not None
