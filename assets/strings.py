@@ -2,7 +2,7 @@
 
 STRINGS = {
     "ru": {
-        "app_title": "YT LOADER PRO v2.4",
+        "app_title": "YT LOADER PRO v2.5",
         "tab_home": "Загрузка",
         "tab_history": "История",
         "tab_settings": "Настройки",
@@ -23,7 +23,7 @@ STRINGS = {
         "folder_download": "Папка загрузок",
         "lang_label": "Язык интерфейса",
         "proxy_label": "Proxy URL",
-        "cookies_label": "Cookies (Netscape)",
+        "cookies_label": "Файл Cookies (Netscape)",
         "clear_history": "Очистить историю",
         "history_cleared": "История очищена",
         "open_folder_check": "Открыть папку после",
@@ -32,9 +32,19 @@ STRINGS = {
         "eta": "Ост.",
         "quality_loading": "Анализ...",
         "quality_best": "Максимальное",
+        # --- NEW ---
+        "browser_cookies_label": "Куки из браузера",
+        "browser_none": "Не использовать",
+        "update_ytdlp_btn": "Обновить yt-dlp",
+        "update_success": "yt-dlp успешно обновлен!",
+        "update_error": "Ошибка обновления",
+        "monitor_clipboard": "Следить за буфером",
+        "subs_switch": "Субтитры",
+        "embed_meta_switch": "Вшить метаданные",
+        "system_section": "Система",
     },
     "en": {
-        "app_title": "YT LOADER PRO v2.4",
+        "app_title": "YT LOADER PRO v2.5",
         "tab_home": "Download",
         "tab_history": "History",
         "tab_settings": "Settings",
@@ -55,7 +65,7 @@ STRINGS = {
         "folder_download": "Download Folder",
         "lang_label": "Interface Language",
         "proxy_label": "Proxy URL",
-        "cookies_label": "Cookies (Netscape)",
+        "cookies_label": "Cookies File (Netscape)",
         "clear_history": "Clear History",
         "history_cleared": "History Cleared",
         "open_folder_check": "Open folder after",
@@ -64,5 +74,15 @@ STRINGS = {
         "eta": "ETA",
         "quality_loading": "Analyzing...",
         "quality_best": "Best Available",
+        # --- NEW ---
+        "browser_cookies_label": "Browser Cookies",
+        "browser_none": "Do not use",
+        "update_ytdlp_btn": "Update yt-dlp",
+        "update_success": "yt-dlp updated successfully!",
+        "update_error": "Update failed",
+        "monitor_clipboard": "Monitor Clipboard",
+        "subs_switch": "Subtitles",
+        "embed_meta_switch": "Embed Metadata",
+        "system_section": "System",
     }
 }

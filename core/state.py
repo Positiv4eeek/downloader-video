@@ -13,27 +13,29 @@ class AppState:
         self.proxy_url = self.store.get("proxy_url") or ""
         self.cookies_path = self.store.get("cookies_path") or ""
         
-        # Настройка языка (по умолчанию ru)
+        # --- NEW SETTINGS ---
+        self.cookies_browser = self.store.get("cookies_browser") or "none"
+        self.monitor_clipboard = self.store.get("monitor_clipboard") or False
+        self.embed_meta = self.store.get("embed_meta") or True
+        self.download_subs = self.store.get("download_subs") or False
+        
         self.language = self.store.get("language") or "ru"
-        self._observers = []  # Список подписчиков на изменения
+        self._observers = []
 
     def add_observer(self, func):
-        """Регистрирует функцию для вызова при изменениях"""
         self._observers.append(func)
 
     def notify_observers(self):
-        """Оповещает всех подписчиков"""
         for func in self._observers:
             func()
 
     def get_str(self, key):
-        """Возвращает строку на текущем языке"""
         return STRINGS.get(self.language, STRINGS["ru"]).get(key, key)
 
     def set_language(self, lang: str):
         self.language = lang
         self.store.set("language", lang)
-        self.notify_observers()  # <-- Уведомляем интерфейс об изменении
+        self.notify_observers()
 
     def set_theme(self, mode: str):
         self.theme_mode = mode
@@ -53,6 +55,23 @@ class AppState:
     def set_cookies_path(self, path: str):
         self.cookies_path = path
         self.store.set("cookies_path", path)
+
+    # --- NEW SETTERS ---
+    def set_cookies_browser(self, browser: str):
+        self.cookies_browser = browser
+        self.store.set("cookies_browser", browser)
+
+    def set_monitor_clipboard(self, value: bool):
+        self.monitor_clipboard = value
+        self.store.set("monitor_clipboard", value)
+
+    def set_embed_meta(self, value: bool):
+        self.embed_meta = value
+        self.store.set("embed_meta", value)
+
+    def set_download_subs(self, value: bool):
+        self.download_subs = value
+        self.store.set("download_subs", value)
 
     def add_history_item(self, item: dict):
         self.history.append(item)
