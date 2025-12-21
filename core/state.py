@@ -1,6 +1,6 @@
 import os
 import flet as ft
-from assets.strings import STRINGS  # Импортируем словарь
+from assets.strings import STRINGS
 
 class AppState:
     def __init__(self, page: ft.Page):
@@ -15,6 +15,16 @@ class AppState:
         
         # Настройка языка (по умолчанию ru)
         self.language = self.store.get("language") or "ru"
+        self._observers = []  # Список подписчиков на изменения
+
+    def add_observer(self, func):
+        """Регистрирует функцию для вызова при изменениях"""
+        self._observers.append(func)
+
+    def notify_observers(self):
+        """Оповещает всех подписчиков"""
+        for func in self._observers:
+            func()
 
     def get_str(self, key):
         """Возвращает строку на текущем языке"""
@@ -23,10 +33,8 @@ class AppState:
     def set_language(self, lang: str):
         self.language = lang
         self.store.set("language", lang)
-        # Мы не вызываем page.update() здесь, так как это требует перерисовки всего UI.
-        # Обычно проще перезагрузить приложение или обновить Views вручную.
+        self.notify_observers()  # <-- Уведомляем интерфейс об изменении
 
-    # ... (Остальные методы: set_theme, set_download_path, set_proxy, set_cookies_path, history... остаются без изменений) ...
     def set_theme(self, mode: str):
         self.theme_mode = mode
         self.store.set("theme", mode)

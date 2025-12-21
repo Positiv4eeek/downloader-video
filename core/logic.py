@@ -35,13 +35,13 @@ class VideoDownloader:
 
     def download(self, url, save_path, quality="best", audio_only=False, 
                  audio_format="mp3", audio_bitrate="192", 
-                 allow_playlist=False, proxy=None, cookies_path=None):
+                 allow_playlist=False, proxy=None, cookies_path=None,
+                 custom_filename=None): # <-- Новый аргумент
         """
         Основной метод загрузки. Возвращает список путей к скачанным файлам.
         """
         self.is_cancelled = False
         
-        # Настройка формата
         postprocessors = []
         ydl_format = "best"
 
@@ -61,10 +61,20 @@ class VideoDownloader:
             }
             ydl_format = format_map.get(quality, "best")
 
+        # Логика формирования имени файла
+        if custom_filename:
+            # Если разрешен плейлист, добавляем индекс, чтобы файлы не перезатирались
+            if allow_playlist:
+                tmpl = f"{custom_filename} - %(playlist_index)s.%(ext)s"
+            else:
+                tmpl = f"{custom_filename}.%(ext)s"
+        else:
+            tmpl = "%(title)s.%(ext)s"
+
         ydl_opts = {
             'format': ydl_format,
             'progress_hooks': [self._progress_hook],
-            'outtmpl': os.path.join(save_path, "%(title)s.%(ext)s"),
+            'outtmpl': os.path.join(save_path, tmpl), # Используем шаблон
             'noplaylist': not allow_playlist,
             'postprocessors': postprocessors,
             'quiet': True,
@@ -79,24 +89,19 @@ class VideoDownloader:
         downloaded_files = []
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # extract_info с download=True запускает скачивание
             info = ydl.extract_info(url, download=True)
             
-            # Логика сбора путей файлов (поддержка плейлистов и одиночных видео)
             if 'entries' in info:
-                # Это плейлист
                 for entry in info['entries']:
                     if not entry: continue
                     if 'requested_downloads' in entry:
                         for d in entry['requested_downloads']:
                             downloaded_files.append(d['filepath'])
                     else:
-                        # Пытаемся предсказать имя файла, если оно не вернулось явно
                         try:
                             downloaded_files.append(ydl.prepare_filename(entry))
                         except: pass
             else:
-                # Одиночное видео
                 if 'requested_downloads' in info:
                     downloaded_files.append(info['requested_downloads'][0]['filepath'])
                 else:

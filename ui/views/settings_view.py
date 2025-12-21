@@ -25,10 +25,7 @@ class SettingsView(ft.Column):
                 ft.dropdown.Option("ru", "Русский"),
                 ft.dropdown.Option("en", "English"),
             ],
-            width=120,
-            text_size=13,
-            border_radius=10,
-            content_padding=10,
+            width=120, text_size=13, border_radius=10, content_padding=10,
             on_change=self.change_language
         )
 
@@ -38,28 +35,58 @@ class SettingsView(ft.Column):
         
         self.cookies_display = ft.Text(os.path.basename(self.app_state.cookies_path) if self.app_state.cookies_path else "Not selected", size=12, color=Colors.BLUE_GREY_400, max_lines=1, overflow="ellipsis", width=150, text_align="right")
 
+        # --- Сохраняем ссылки для локализации ---
+        self.title_text = ft.Text(self.app_state.get_str("settings_title"), size=20, weight="bold")
+        self.lang_label = ft.Text(self.app_state.get_str("lang_label"), size=14, weight="w500")
+        self.theme_label = ft.Text(self.app_state.get_str("theme_dark"), size=14, weight="w500")
+        self.folder_label = ft.Text(self.app_state.get_str("folder_download"), size=14, weight="w500")
+        self.cookies_label_text = ft.Text(self.app_state.get_str("cookies_label"), size=14, weight="w500")
+        self.history_btn_text = ft.Text(self.app_state.get_str("clear_history"), weight="bold", size=15)
+
         self.controls = [
-            ft.Text(self.app_state.get_str("settings_title"), size=20, weight="bold"),
+            self.title_text,
             
-            SettingTile(Icons.LANGUAGE_ROUNDED, self.app_state.get_str("lang_label"), self.lang_dd),
-            SettingTile(Icons.DARK_MODE_ROUNDED, self.app_state.get_str("theme_dark"), self.theme_switch),
-            SettingTile(Icons.FOLDER_ROUNDED, self.app_state.get_str("folder_download"), ft.Row([self.path_display, ft.IconButton(Icons.EDIT_ROUNDED, on_click=lambda _: self.path_picker.get_directory_path())])),
+            # Мы вручную собираем Row для SettingTile, чтобы передать туда наши сохраненные Label
+            self._build_tile(Icons.LANGUAGE_ROUNDED, self.lang_label, self.lang_dd),
+            self._build_tile(Icons.DARK_MODE_ROUNDED, self.theme_label, self.theme_switch),
+            self._build_tile(Icons.FOLDER_ROUNDED, self.folder_label, ft.Row([self.path_display, ft.IconButton(Icons.EDIT_ROUNDED, on_click=lambda _: self.path_picker.get_directory_path())])),
             
             ft.Divider(),
             ft.Text("Network & Access", size=16, weight="bold"),
             self.proxy_input,
-            SettingTile(Icons.COOKIE_ROUNDED, self.app_state.get_str("cookies_label"), ft.Row([self.cookies_display, ft.IconButton(Icons.UPLOAD_FILE_ROUNDED, on_click=lambda _: self.cookies_picker.pick_files(allow_multiple=False))])),
+            self._build_tile(Icons.COOKIE_ROUNDED, self.cookies_label_text, ft.Row([self.cookies_display, ft.IconButton(Icons.UPLOAD_FILE_ROUNDED, on_click=lambda _: self.cookies_picker.pick_files(allow_multiple=False))])),
             
             ft.Divider(),
-            SettingTile(Icons.DELETE_SWEEP_ROUNDED, "History", ft.ElevatedButton(self.app_state.get_str("clear_history"), bgcolor=Colors.RED_700, color="white", on_click=self.clear_history)),
+            ft.Container(
+                content=ft.Row([
+                    ft.Row([ft.Icon(Icons.DELETE_SWEEP_ROUNDED, color=Colors.BLUE_GREY_400), ft.Text("History", size=14, weight="w500")], spacing=15),
+                    ft.ElevatedButton(content=self.history_btn_text, bgcolor=Colors.RED_700, color="white", on_click=self.clear_history)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=15, bgcolor=Colors.with_opacity(0.03, Colors.WHITE), border_radius=12
+            )
         ]
+
+    def _build_tile(self, icon, label_control, content_control):
+        return ft.Container(
+            content=ft.Row([
+                ft.Row([ft.Icon(icon, color=Colors.BLUE_GREY_400), label_control], spacing=15),
+                content_control
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            padding=15, bgcolor=Colors.with_opacity(0.03, Colors.WHITE), border_radius=12
+        )
+
+    def update_locale(self):
+        self.title_text.value = self.app_state.get_str("settings_title")
+        self.lang_label.value = self.app_state.get_str("lang_label")
+        self.theme_label.value = self.app_state.get_str("theme_dark")
+        self.folder_label.value = self.app_state.get_str("folder_download")
+        self.proxy_input.label = self.app_state.get_str("proxy_label")
+        self.cookies_label_text.value = self.app_state.get_str("cookies_label")
+        self.history_btn_text.value = self.app_state.get_str("clear_history")
+        self.update()
 
     def change_language(self, e):
         self.app_state.set_language(self.lang_dd.value)
-        # Показываем уведомление о необходимости перезагрузки (или перезагружаем сами)
-        self.page.snack_bar = ft.SnackBar(ft.Text("Language changed. Please restart app to apply all changes completely."), bgcolor=Colors.ORANGE_700)
-        self.page.snack_bar.open = True
-        self.page.update()
 
     def toggle_theme(self, e):
         new_mode = "dark" if self.theme_switch.value else "light"

@@ -33,6 +33,16 @@ def main(page: ft.Page):
     history_view = HistoryView(page, app_state)
     settings_view = SettingsView(page, app_state)
 
+    # --- Подписка на изменение языка ---
+    def on_language_changed():
+        download_view.update_locale()
+        settings_view.update_locale()
+        # Обновляем заголовок окна
+        page.title = app_state.get_str("app_title")
+        page.update()
+
+    app_state.add_observer(on_language_changed)
+
     # 3. Навигация
     def change_tab(index):
         download_view.visible = (index == 0)

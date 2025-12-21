@@ -1,6 +1,7 @@
 import flet as ft
 import threading
 import os
+import re
 from flet import Icons, Colors, MainAxisAlignment
 from core.logic import VideoDownloader, DownloadCancelled
 from core.utils import open_path
@@ -13,6 +14,7 @@ class DownloadView(ft.Column):
         self.app_state = app_state
         self.download_queue = []
         self.is_processing = False
+        self.queue_paused = False # Флаг паузы очереди
         self.current_downloader = None
         self.downloader_logic = VideoDownloader(None)
         
@@ -23,7 +25,7 @@ class DownloadView(ft.Column):
         self._setup_ui()
 
     def _setup_ui(self):
-        # Локализованные тексты
+        # 1. URL Input
         self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Paste", icon_color=Colors.BLUE_ACCENT, on_click=self.paste_from_clipboard)
         self.url_input = StyledTextField(
             self.app_state.get_str("url_label"), 
@@ -33,7 +35,15 @@ class DownloadView(ft.Column):
             suffix=self.paste_btn
         )
         
-        # --- Скелетон и Превью ---
+        # 2. Filename Input (Скрыто по умолчанию)
+        self.filename_input = StyledTextField(
+            "Имя файла (опционально)", 
+            "MyVideo", 
+            Icons.DRIVE_FILE_RENAME_OUTLINE_ROUNDED, 
+            visible=False
+        )
+
+        # 3. Preview Section
         self.preview_img = ft.Image(src="", width=120, height=70, fit="cover", border_radius=10, visible=False)
         self.skeleton = ft.Container(width=120, height=70, bgcolor=Colors.with_opacity(0.1, Colors.WHITE), border_radius=10, visible=False, animate_opacity=500)
         self.video_title = ft.Text("", weight="bold", size=14, max_lines=2, overflow="ellipsis")
@@ -49,16 +59,8 @@ class DownloadView(ft.Column):
             ])
         )
 
-        # Выбор качества (изначально только Best, потом подгрузим)
-        self.quality_dd = ft.Dropdown(
-            value="best", 
-            options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], 
-            border_radius=12, 
-            expand=True,
-            text_size=13
-        )
-        
-        # --- Настройки Аудио ---
+        # 4. Options
+        self.quality_dd = ft.Dropdown(value="best", options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], border_radius=12, expand=True, text_size=13)
         self.audio_format_dd = ft.Dropdown(value="mp3", options=[ft.dropdown.Option(k) for k in ["mp3", "m4a", "wav"]], width=80, text_size=12, content_padding=5, visible=False)
         self.audio_bitrate_dd = ft.Dropdown(value="192", options=[ft.dropdown.Option(k, f"{k}k") for k in ["128", "192", "320"]], width=80, text_size=12, content_padding=5, visible=False)
         
@@ -68,11 +70,11 @@ class DownloadView(ft.Column):
         self.playlist_switch = ft.Switch(label=self.app_state.get_str("playlist_switch"), value=False)
         self.open_folder_switch = ft.Checkbox(label=self.app_state.get_str("open_folder_check"), value=False, label_style=ft.TextStyle(size=12, color=Colors.BLUE_GREY_200))
 
+        # 5. Buttons & Progress
         self.download_btn = PrimaryButton(self.app_state.get_str("add_btn"), Icons.ADD_TO_PHOTOS_ROUNDED, self.add_to_queue)
         
-        # --- Прогресс Бар ---
         self.speed_text = ft.Text("0 MB/s", size=13, weight="bold")
-        self.eta_text = ft.Text("--:--", size=13, weight="bold") # ETA
+        self.eta_text = ft.Text("--:--", size=13, weight="bold")
         
         self.progress_bar = ft.ProgressBar(value=0, color=Colors.BLUE_ACCENT, height=6, border_radius=10)
         self.status_text = ft.Text(self.app_state.get_str("status_ready"), size=12, color=Colors.BLUE_GREY_400)
@@ -86,7 +88,7 @@ class DownloadView(ft.Column):
                 ft.Row([self.queue_btn], alignment=MainAxisAlignment.END), 
                 ft.Row([
                     StatBadge(Icons.SPEED_ROUNDED, "SPEED", self.speed_text), 
-                    StatBadge(Icons.TIMER_ROUNDED, self.app_state.get_str("eta"), self.eta_text) # ETA Badge
+                    StatBadge(Icons.TIMER_ROUNDED, self.app_state.get_str("eta"), self.eta_text)
                 ], spacing=15),
                 self.progress_bar,
                 ft.Row([self.status_text, self.cancel_btn], alignment=MainAxisAlignment.SPACE_BETWEEN)
@@ -94,7 +96,9 @@ class DownloadView(ft.Column):
         )
 
         self.controls = [
-            self.url_input, self.preview_card,
+            self.url_input, 
+            self.filename_input,
+            self.preview_card,
             ft.Row([self.quality_dd]),
             ft.Row([self.audio_switch, self.audio_options_row], alignment=MainAxisAlignment.SPACE_BETWEEN),
             ft.Row([self.playlist_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
@@ -102,14 +106,19 @@ class DownloadView(ft.Column):
             self.download_btn, self.progress_container
         ]
 
-        # --- Модальное окно очереди ---
+        # --- Queue Modal ---
         self.queue_list_view = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
+        self.pause_queue_switch = ft.Switch(label="Pause Queue", value=False, on_change=self.toggle_queue_pause)
+        
         self.queue_bottom_sheet = ft.BottomSheet(
             ft.Container(
                 ft.Column([
                     ft.Row([
                         ft.Text(self.app_state.get_str("queue_title"), size=20, weight="bold"),
-                        ft.IconButton(Icons.DELETE_SWEEP_ROUNDED, tooltip=self.app_state.get_str("clear_queue"), on_click=self.clear_queue_all)
+                        ft.Row([
+                             self.pause_queue_switch,
+                             ft.IconButton(Icons.DELETE_SWEEP_ROUNDED, tooltip=self.app_state.get_str("clear_queue"), on_click=self.clear_queue_all)
+                        ])
                     ], alignment=MainAxisAlignment.SPACE_BETWEEN),
                     ft.Divider(),
                     ft.Container(self.queue_list_view, height=300), 
@@ -121,8 +130,61 @@ class DownloadView(ft.Column):
             )
         )
 
-    # --- ЛОГИКА ---
-    
+    # --- МЕТОД ОБНОВЛЕНИЯ ЯЗЫКА ---
+    def update_locale(self):
+        self.url_input.label = self.app_state.get_str("url_label")
+        self.url_input.hint_text = self.app_state.get_str("url_hint")
+        self.quality_dd.options[0].text = self.app_state.get_str("quality_best")
+        self.audio_switch.label = self.app_state.get_str("audio_only_switch")
+        self.playlist_switch.label = self.app_state.get_str("playlist_switch")
+        self.open_folder_switch.label = self.app_state.get_str("open_folder_check")
+        
+        # Обновляем текст кнопки
+        self.download_btn.content.content.controls[1].value = self.app_state.get_str("add_btn")
+        
+        self.status_text.value = self.app_state.get_str("status_ready")
+        self.queue_bottom_sheet.content.content.controls[0].controls[0].value = self.app_state.get_str("queue_title")
+        self.update()
+
+    # --- ЛОГИКА ОЧЕРЕДИ И ПАУЗЫ ---
+    def toggle_queue_pause(self, e):
+        self.queue_paused = self.pause_queue_switch.value
+        # Если сняли с паузы и ничего не качается, запускаем обработчик
+        if not self.queue_paused and not self.is_processing and self.download_queue:
+            threading.Thread(target=self.process_queue, daemon=True).start()
+
+    def move_item_up(self, index):
+        if index > 0 and index < len(self.download_queue):
+            # Нельзя двигать 2-й элемент (индекс 1) на место 1-го (индекс 0), если 1-й уже качается
+            if self.is_processing and index == 1: return 
+            self.download_queue[index], self.download_queue[index-1] = self.download_queue[index-1], self.download_queue[index]
+            self.update_queue_ui()
+
+    def move_item_down(self, index):
+        if index < len(self.download_queue) - 1:
+            if self.is_processing and index == 0: return # Нельзя сдвинуть текущий загружаемый
+            self.download_queue[index], self.download_queue[index+1] = self.download_queue[index+1], self.download_queue[index]
+            self.update_queue_ui()
+
+    def update_queue_ui(self):
+        count = len(self.download_queue)
+        self.queue_btn.text = f"{count}"
+        self.queue_btn.visible = count > 0
+        
+        self.queue_list_view.controls.clear()
+        if not self.download_queue:
+            self.queue_list_view.controls.append(ft.Text(self.app_state.get_str("queue_empty"), color=Colors.GREY))
+        else:
+            for i, item in enumerate(self.download_queue):
+                status = "waiting"
+                if i == 0 and self.is_processing: status = "downloading"
+                
+                self.queue_list_view.controls.append(
+                    QueueItem(i, item, status, self.remove_from_queue, self.move_item_up, self.move_item_down, count)
+                )
+        self.page.update()
+
+    # --- ЛОГИКА UI ---
     def toggle_audio_options(self, e):
         visible = self.audio_switch.value
         self.audio_options_row.visible = visible
@@ -144,10 +206,12 @@ class DownloadView(ft.Column):
             self.url_input.error_text = None
             self.download_btn.disabled = False
             self.preview_card.visible = False
+            self.filename_input.visible = False
         elif not (val.startswith("http://") or val.startswith("https://")):
             self.url_input.error_text = self.app_state.get_str("error_url")
             self.download_btn.disabled = True
             self.preview_card.visible = False
+            self.filename_input.visible = False
         else:
             self.url_input.error_text = None
             self.download_btn.disabled = False
@@ -158,8 +222,8 @@ class DownloadView(ft.Column):
         self.preview_card.visible = True
         self.skeleton.visible = True
         self.preview_img.visible = False
+        self.filename_input.visible = False
         self.video_title.value = self.app_state.get_str("quality_loading")
-        # Сброс списка качеств
         self.quality_dd.options = [ft.dropdown.Option("best", self.app_state.get_str("quality_best"))]
         self.quality_dd.value = "best"
         self.update()
@@ -174,18 +238,20 @@ class DownloadView(ft.Column):
                 self.video_title.value = info.get('title', 'Video')
                 self.preview_img.src = info.get('thumbnail', '')
                 
+                # --- АВТОЗАПОЛНЕНИЕ ИМЕНИ ---
+                # Очищаем имя от недопустимых символов для файловой системы
+                safe_title = re.sub(r'[<>:"/\\|?*]', '', info.get('title', ''))
+                self.filename_input.value = safe_title
+                self.filename_input.visible = True
+
                 # --- ДИНАМИЧЕСКИЕ ФОРМАТЫ ---
                 formats = info.get('formats', [])
-                # Извлекаем уникальные разрешения (height) для видео
                 resolutions = set()
                 for f in formats:
                     if f.get('vcodec') != 'none' and f.get('height'):
                         resolutions.add(f.get('height'))
                 
-                # Сортируем от большего к меньшему
                 sorted_res = sorted(list(resolutions), reverse=True)
-                
-                # Обновляем список, если нашли форматы
                 if sorted_res:
                     new_options = [ft.dropdown.Option("best", self.app_state.get_str("quality_best"))]
                     for res in sorted_res:
@@ -210,32 +276,19 @@ class DownloadView(ft.Column):
             'audio_only': self.audio_switch.value,
             'audio_format': self.audio_format_dd.value,
             'audio_bitrate': self.audio_bitrate_dd.value,
-            'playlist': self.playlist_switch.value
+            'playlist': self.playlist_switch.value,
+            'filename': self.filename_input.value.strip() # Сохраняем имя
         })
         self.url_input.value = ""
+        self.filename_input.value = ""
+        self.filename_input.visible = False
         self.preview_card.visible = False
         self.update_queue_ui()
         self.show_msg("Added to queue")
-        if not self.is_processing: threading.Thread(target=self.process_queue, daemon=True).start()
-
-    def update_queue_ui(self):
-        count = len(self.download_queue)
-        self.queue_btn.text = f"{count}"
-        self.queue_btn.visible = count > 0
         
-        self.queue_list_view.controls.clear()
-        if not self.download_queue:
-            self.queue_list_view.controls.append(ft.Text(self.app_state.get_str("queue_empty"), color=Colors.GREY))
-        else:
-            for i, item in enumerate(self.download_queue):
-                status = "waiting"
-                if i == 0 and self.is_processing:
-                    status = "downloading"
-                
-                self.queue_list_view.controls.append(
-                    QueueItem(i, item['url'], item['quality'], status, self.remove_from_queue)
-                )
-        self.page.update()
+        # Если не качаем и очередь не на паузе - запускаем
+        if not self.is_processing and not self.queue_paused: 
+            threading.Thread(target=self.process_queue, daemon=True).start()
 
     def remove_from_queue(self, idx):
         if 0 <= idx < len(self.download_queue):
@@ -243,7 +296,6 @@ class DownloadView(ft.Column):
             self.update_queue_ui()
 
     def clear_queue_all(self, e):
-        # Удаляем все, кроме текущей загрузки (элемент 0, если is_processing)
         if self.is_processing and self.download_queue:
             self.download_queue = [self.download_queue[0]]
         else:
@@ -263,6 +315,10 @@ class DownloadView(ft.Column):
     def process_queue(self):
         self.is_processing = True
         while self.download_queue:
+            # Если поставили на паузу - прерываем цикл (текущая загрузка завершится сама или была отменена)
+            if self.queue_paused:
+                break
+
             task = self.download_queue[0]
             self.update_queue_ui()
             
@@ -282,17 +338,14 @@ class DownloadView(ft.Column):
                     audio_bitrate=task.get('audio_bitrate', '192'),
                     allow_playlist=task['playlist'],
                     proxy=self.app_state.proxy_url,
-                    cookies_path=self.app_state.cookies_path
+                    cookies_path=self.app_state.cookies_path,
+                    custom_filename=task.get('filename') # Передаем имя
                 )
                 
-                # Метаданные
                 info = self.downloader_logic.get_video_info(task['url'], self.app_state.proxy_url, self.app_state.cookies_path)
                 
                 for file_path in downloaded_files:
                     title = os.path.basename(file_path)
-                    if not task['playlist']:
-                        title = info.get('title', title)
-
                     self.app_state.add_history_item({
                         "title": title,
                         "author": info.get('uploader', 'YouTube'),
@@ -332,10 +385,7 @@ class DownloadView(ft.Column):
                 self.progress_bar.value = p
                 self.status_text.value = f"{p*100:.1f}%"
                 self.speed_text.value = d.get('_speed_str', '--')
-                
-                # --- ETA (Время) ---
                 self.eta_text.value = d.get('_eta_str', '--:--')
-                
                 self.page.update()
             except: pass
         elif d['status'] == 'finished':

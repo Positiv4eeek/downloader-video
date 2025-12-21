@@ -1,10 +1,12 @@
 import flet as ft
 from flet import Icons, Colors
 
-def StyledTextField(label, hint, icon, on_change=None, suffix=None, on_submit=None):
+def StyledTextField(label, hint, icon, on_change=None, suffix=None, on_submit=None, value=None, visible=True):
     return ft.TextField(
         label=label,
         hint_text=hint,
+        value=value,
+        visible=visible,
         border_radius=15,
         border_width=1,
         border_color=Colors.BLUE_GREY_800,
@@ -66,9 +68,10 @@ def StatBadge(icon, label, value_ref):
         expand=True
     )
 
-# --- НОВЫЙ КОМПОНЕНТ: Элемент очереди (Исправленный) ---
-def QueueItem(idx, url, quality, status, on_remove):
-    # status: "waiting", "downloading", "done"
+def QueueItem(idx, item_data, status, on_remove, on_move_up, on_move_down, total_items):
+    url = item_data['url']
+    quality = item_data['quality']
+    custom_name = item_data.get('filename')
     
     status_colors = {
         "waiting": Colors.GREY_500,
@@ -76,46 +79,55 @@ def QueueItem(idx, url, quality, status, on_remove):
         "done": Colors.GREEN,
     }
     
-    # ИСПРАВЛЕНИЕ: Иконки должны быть UPPERCASE
-    # Если Icons.DOWNLOADING_ROUNDED не сработает в вашей версии flet,
-    # используйте Icons.DOWNLOADING
     status_icons = {
         "waiting": Icons.HOURGLASS_EMPTY_ROUNDED, 
         "downloading": Icons.DOWNLOADING, 
         "done": Icons.CHECK_CIRCLE_ROUNDED,
     }
 
-    # Безопасное получение иконки
     current_icon = status_icons.get(status, Icons.CIRCLE)
     current_color = status_colors.get(status, Colors.GREY)
+    
+    # Отображаем кастомное имя, если есть, иначе URL
+    display_title = custom_name if custom_name else url
+    is_active = status == "downloading"
 
     return ft.Container(
         content=ft.Row([
             ft.Row([
                 ft.Icon(current_icon, color=current_color),
                 ft.Column([
-                    ft.Text(url, size=12, weight="bold", max_lines=1, overflow="ellipsis", width=200),
-                    ft.Text(f"Качество: {quality}", size=10, color=Colors.GREY_500)
+                    ft.Text(display_title, size=12, weight="bold", max_lines=1, overflow="ellipsis", width=180),
+                    ft.Text(f"{quality} | {url[:30]}...", size=10, color=Colors.GREY_500)
                 ], spacing=2)
             ]),
-            ft.IconButton(
-                Icons.CLOSE_ROUNDED, 
-                icon_color=Colors.RED_400, 
-                tooltip="Удалить",
-                on_click=lambda _: on_remove(idx),
-                visible=(status != "downloading") # Нельзя удалить то, что качается
-            )
+            
+            ft.Row([
+                # Кнопка ВВЕРХ (скрыта для первого элемента и активной загрузки)
+                ft.IconButton(Icons.ARROW_UPWARD_ROUNDED, icon_size=16, tooltip="Up", 
+                    on_click=lambda _: on_move_up(idx), visible=(not is_active and idx > 0 and status == "waiting")),
+                
+                # Кнопка ВНИЗ (скрыта для последнего элемента и активной загрузки)
+                ft.IconButton(Icons.ARROW_DOWNWARD_ROUNDED, icon_size=16, tooltip="Down", 
+                    on_click=lambda _: on_move_down(idx), visible=(not is_active and idx < total_items - 1 and status == "waiting")),
+                
+                ft.IconButton(
+                    Icons.CLOSE_ROUNDED, 
+                    icon_color=Colors.RED_400, 
+                    icon_size=20,
+                    tooltip="Remove",
+                    on_click=lambda _: on_remove(idx),
+                    visible=(not is_active)
+                )
+            ], spacing=0)
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         padding=10,
         bgcolor=Colors.with_opacity(0.05, Colors.WHITE),
         border_radius=10,
-        border=ft.border.all(1, current_color if status == "downloading" else Colors.TRANSPARENT)
+        border=ft.border.all(1, current_color if is_active else Colors.TRANSPARENT)
     )
 
 def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete):
-    """
-    item_data: dict с ключами title, author, thumb, path, file_path, url
-    """
     image_url = item_data.get('thumb')
     
     if image_url:
@@ -140,28 +152,11 @@ def HistoryCard(item_data, on_open_folder, on_open_file, on_copy_link, on_delete
                 icon_color=Colors.GREY_400,
                 tooltip="Действия",
                 items=[
-                    ft.PopupMenuItem(
-                        text="Открыть файл", 
-                        icon=Icons.PLAY_ARROW_ROUNDED, 
-                        on_click=lambda _: on_open_file(item_data.get('file_path'))
-                    ),
-                    ft.PopupMenuItem(
-                        text="Открыть папку", 
-                        icon=Icons.FOLDER_OPEN_ROUNDED, 
-                        on_click=lambda _: on_open_folder(item_data.get('path'))
-                    ),
-                    ft.PopupMenuItem(
-                        text="Копировать ссылку", 
-                        icon=Icons.COPY_ROUNDED, 
-                        on_click=lambda _: on_copy_link(item_data.get('url'))
-                    ),
+                    ft.PopupMenuItem(text="Открыть файл", icon=Icons.PLAY_ARROW_ROUNDED, on_click=lambda _: on_open_file(item_data.get('file_path'))),
+                    ft.PopupMenuItem(text="Открыть папку", icon=Icons.FOLDER_OPEN_ROUNDED, on_click=lambda _: on_open_folder(item_data.get('path'))),
+                    ft.PopupMenuItem(text="Копировать ссылку", icon=Icons.COPY_ROUNDED, on_click=lambda _: on_copy_link(item_data.get('url'))),
                     ft.PopupMenuItem(), 
-                    ft.PopupMenuItem(
-                        text="Удалить запись", 
-                        icon=Icons.DELETE_OUTLINE_ROUNDED, 
-                        content=ft.Text("Удалить запись", color=Colors.RED_400),
-                        on_click=lambda _: on_delete(item_data)
-                    ),
+                    ft.PopupMenuItem(text="Удалить запись", icon=Icons.DELETE_OUTLINE_ROUNDED, content=ft.Text("Удалить запись", color=Colors.RED_400), on_click=lambda _: on_delete(item_data)),
                 ]
             )
         ]),
