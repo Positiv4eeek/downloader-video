@@ -30,30 +30,21 @@ class VideoDownloader:
             print(f"Update error: {e}")
             return False
 
-    def get_video_info(self, url, proxy=None, cookies_path=None, cookies_browser=None):
+    def get_video_info(self, url):
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': 'in_playlist',
         }
-        if proxy: ydl_opts['proxy'] = proxy
-        
-        # Приоритет: Файл > Браузер
-        if cookies_path and os.path.exists(cookies_path):
-            ydl_opts['cookiefile'] = cookies_path
-        elif cookies_browser and cookies_browser != "none":
-            ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
-
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
 
     def download(self, url, save_path, quality="best", audio_only=False, 
                  audio_format="mp3", audio_bitrate="192", 
-                 allow_playlist=False, proxy=None, 
-                 cookies_path=None, cookies_browser=None, 
+                 allow_playlist=False,
                  custom_filename=None, 
                  embed_meta=True, download_subs=False,
-                 use_sponsor_block=False, playlist_items=None): # [UPDATED]
+                 use_sponsor_block=False, playlist_items=None):
         
         self.is_cancelled = False
         postprocessors = []
@@ -71,18 +62,17 @@ class VideoDownloader:
                 "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
                 "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
                 "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
-                "best": "best"
+                "best": "bestvideo+bestaudio/best" # Используем bestvideo+bestaudio для лучшего качества
             }
-            ydl_format = format_map.get(quality, "best")
+            ydl_format = format_map.get(quality, "bestvideo+bestaudio/best")
 
         # --- ВСТРАИВАНИЕ МЕТАДАННЫХ ---
         if embed_meta:
-            # Для видео встраиваем обложку, для аудио тоже (если формат позволяет)
             postprocessors.append({'key': 'FFmpegMetadata'})
             if not audio_only or audio_format in ['mp3', 'm4a', 'flac']:
                 postprocessors.append({'key': 'EmbedThumbnail'})
 
-        # --- SPONSORBLOCK [NEW] ---
+        # --- SPONSORBLOCK ---
         if use_sponsor_block:
             postprocessors.append({
                 'key': 'SponsorBlock',
@@ -110,23 +100,18 @@ class VideoDownloader:
             'no_color': True,
             'ignoreerrors': True if allow_playlist else False,
             'restrictfilenames': True,
-            'proxy': proxy if proxy else None,
             
             # --- ОПЦИИ ---
             'writethumbnail': embed_meta,
             'writesubtitles': download_subs,
             'subtitleslangs': ['all'] if download_subs else None,
+            
+            # --- УЛУЧШЕНИЕ: Принудительно MP4 ---
+            'merge_output_format': 'mp4' if not audio_only else None,
         }
 
-        # [NEW] Выбор элементов плейлиста
         if playlist_items:
             ydl_opts['playlist_items'] = playlist_items
-
-        # --- COOKIES ---
-        if cookies_path and os.path.exists(cookies_path):
-            ydl_opts['cookiefile'] = cookies_path
-        elif cookies_browser and cookies_browser != "none":
-            ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
 
         downloaded_files = []
 

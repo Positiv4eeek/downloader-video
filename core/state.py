@@ -10,15 +10,12 @@ class AppState:
         self.download_path = self.store.get("download_path") or os.path.join(os.path.expanduser("~"), "Downloads")
         self.history = self.store.get("history") or []
         self.theme_mode = self.store.get("theme") or "dark"
-        self.proxy_url = self.store.get("proxy_url") or ""
-        self.cookies_path = self.store.get("cookies_path") or ""
         
-        # --- NEW SETTINGS ---
-        self.cookies_browser = self.store.get("cookies_browser") or "none"
+        # --- Settings ---
         self.monitor_clipboard = self.store.get("monitor_clipboard") or False
         self.embed_meta = self.store.get("embed_meta") or True
         self.download_subs = self.store.get("download_subs") or False
-        self.sponsor_block = self.store.get("sponsor_block") or False  # [NEW]
+        self.sponsor_block = self.store.get("sponsor_block") or False 
         
         self.language = self.store.get("language") or "ru"
         self._observers = []
@@ -49,19 +46,6 @@ class AppState:
         self.download_path = path
         self.store.set("download_path", path)
 
-    def set_proxy(self, url: str):
-        self.proxy_url = url
-        self.store.set("proxy_url", url)
-
-    def set_cookies_path(self, path: str):
-        self.cookies_path = path
-        self.store.set("cookies_path", path)
-
-    # --- NEW SETTERS ---
-    def set_cookies_browser(self, browser: str):
-        self.cookies_browser = browser
-        self.store.set("cookies_browser", browser)
-
     def set_monitor_clipboard(self, value: bool):
         self.monitor_clipboard = value
         self.store.set("monitor_clipboard", value)
@@ -74,7 +58,7 @@ class AppState:
         self.download_subs = value
         self.store.set("download_subs", value)
 
-    def set_sponsor_block(self, value: bool): # [NEW]
+    def set_sponsor_block(self, value: bool):
         self.sponsor_block = value
         self.store.set("sponsor_block", value)
 
