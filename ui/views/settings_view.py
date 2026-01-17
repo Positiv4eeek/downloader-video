@@ -7,12 +7,14 @@ from core.logic import VideoDownloader
 
 class SettingsView(ft.Column):
     def __init__(self, page: ft.Page, app_state):
-        super().__init__()
+        super().__init__(
+            spacing=15,
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
         self.page = page
         self.app_state = app_state
         self.visible = False
-        self.spacing = 15
-        self.scroll = ft.ScrollMode.HIDDEN
 
         self.path_picker = ft.FilePicker(on_result=self.change_path_result)
         self.page.overlay.extend([self.path_picker])
@@ -84,10 +86,10 @@ class SettingsView(ft.Column):
         self.lang_label = self.app_state.get_str("lang_label")
         self.theme_label = self.app_state.get_str("theme_dark")
         self.folder_label = self.app_state.get_str("folder_download")
-        self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
         self.clipboard_label = self.app_state.get_str("monitor_clipboard")
         self.meta_label = self.app_state.get_str("embed_meta_switch")
         self.sb_label = self.app_state.get_str("sponsor_block_switch")
+        self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
         self.system_label.value = self.app_state.get_str("system_section")
         self._update_controls()
         self.update()

@@ -6,12 +6,10 @@ from core.utils import open_path
 
 class HistoryView(ft.Column):
     def __init__(self, page: ft.Page, app_state):
-        super().__init__()
+        super().__init__(expand=True, spacing=15)
         self.page = page
         self.app_state = app_state
         self.visible = False
-        self.expand = True
-        self.spacing = 15
         
         self.history_list = ft.ListView(expand=True, spacing=12)
         self.controls = [

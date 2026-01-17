@@ -122,10 +122,13 @@ def main(page: ft.Page):
                         ], alignment=MainAxisAlignment.SPACE_BETWEEN),
                     ),
                     ft.Divider(height=10, color="transparent"),
-                    ft.Container(content=ft.Stack([download_view, history_view, settings_view]), expand=True)
+                    ft.Container(
+                        content=ft.Stack([download_view, history_view, settings_view]), 
+                        expand=True,
+                    )
                 ])
             )
-        ])
+        ], expand=True)
     )
 
 

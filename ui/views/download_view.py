@@ -10,7 +10,11 @@ from ui.components import StyledTextField, PrimaryButton, StatBadge, QueueItem
 
 class DownloadView(ft.Column):
     def __init__(self, page: ft.Page, app_state):
-        super().__init__()
+        super().__init__(
+            spacing=15,
+            expand=True,
+            scroll=ft.ScrollMode.AUTO
+        )
         self.page = page
         self.app_state = app_state
         self.download_queue = []
@@ -21,10 +25,6 @@ class DownloadView(ft.Column):
         
         self.playlist_entries = []
         self.selected_indices = []
-
-        self.spacing = 15
-        self.visible = True
-        self.expand = True
 
         self._setup_ui()
 
