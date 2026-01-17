@@ -59,12 +59,12 @@ class VideoDownloader:
             })
         else:
             format_map = {
-                "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
-                "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-                "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
-                "best": "bestvideo+bestaudio/best" # Используем bestvideo+bestaudio для лучшего качества
+                "1080p": "bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+                "720p": "bestvideo[height<=720]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]",
+                "480p": "bestvideo[height<=480]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]",
+                "best": "bestvideo+bestaudio[ext=m4a]/bestvideo+bestaudio/best" 
             }
-            ydl_format = format_map.get(quality, "bestvideo+bestaudio/best")
+            ydl_format = format_map.get(quality, "bestvideo+bestaudio[ext=m4a]/bestvideo+bestaudio/best")
 
         # --- ВСТРАИВАНИЕ МЕТАДАННЫХ ---
         if embed_meta:
