@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,16 +9,40 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         /* Add some specific svg styles inline */
-        .icon { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .icon {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
     </style>
 </head>
+
 <body>
 
     <header>
         <div class="container">
             <nav>
-                <div class="logo">
-                    <span class="gradient-text">Downloader</span>
+                <div class="logo" style="display: flex; align-items: center; gap: 10px;">
+                    <!-- New SVG Logo -->
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="10" fill="url(#logo_gradient)" />
+                        <path d="M16 8V20" stroke="white" stroke-width="3" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M10 16L16 22L22 16" stroke="white" stroke-width="3" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <defs>
+                            <linearGradient id="logo_gradient" x1="0" y1="0" x2="32" y2="32"
+                                gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#7C3AED" />
+                                <stop offset="1" stop-color="#2563EB" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span class="gradient-text">YoutubeLoader</span>
                 </div>
                 <a href="#" class="btn btn-primary">Скачать бесплатно</a>
             </nav>
@@ -28,12 +53,13 @@
         <div class="container">
             <div class="hero-content">
                 <div class="hero-text">
-                    <h1>Скачивай видео <br>в <span class="gradient-text">один клик</span></h1>
-                    <p>Современный, быстрый и красивый загрузчик видео. Поддержка всех популярных платформ и форматов.</p>
+                    <h1>Скачивай видео <br>с <span class="gradient-text">YouTube</span></h1>
+                    <p>Простой и удобный инструмент для сохранения ваших любимых роликов. Поддержка 4K, 60fps и разных
+                        форматов.</p>
                     <a href="#" class="btn btn-primary">Скачать для Windows</a>
                     <p style="font-size: 0.875rem; margin-top: 1rem; opacity: 0.6;">Версия 1.0 • Windows 10/11</p>
                 </div>
-                
+
                 <div class="app-preview">
                     <div class="window">
                         <div class="window-header">
@@ -43,13 +69,25 @@
                         </div>
                         <div class="window-body">
                             <!-- Abstract UI representation -->
-                            <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 2rem; color: #fff;">Вставьте ссылку</div>
+                            <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 2rem; color: #fff;">Вставьте
+                                ссылку на YouTube</div>
                             <div class="input-bar"></div>
                             <div class="download-btn-mock"></div>
-                            <div style="margin-top: 2rem; width: 100%; display: flex; gap: 10px; justify-content: center;">
-                                <div style="width: 60px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 8px;"></div>
-                                <div style="width: 60px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 8px;"></div>
-                                <div style="width: 60px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 8px;"></div>
+                            <!-- Mock video thumbnails -->
+                            <div
+                                style="margin-top: 2rem; width: 100%; display: flex; gap: 10px; justify-content: center;">
+                                <div
+                                    style="width: 80px; height: 60px; background: rgba(255,255,255,0.05); border-radius: 8px; position: relative; overflow: hidden;">
+                                    <div
+                                        style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); font-size: 8px; padding: 1px 3px; border-radius: 2px;">
+                                        10:05</div>
+                                </div>
+                                <div
+                                    style="width: 80px; height: 60px; background: rgba(255,255,255,0.05); border-radius: 8px; position: relative; overflow: hidden;">
+                                    <div
+                                        style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); font-size: 8px; padding: 1px 3px; border-radius: 2px;">
+                                        3:42</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -61,19 +99,25 @@
     <section class="features">
         <div class="container">
             <h2 style="text-align: center; font-size: 2.5rem;">Почему мы?</h2>
-            
+
             <div class="features-grid">
                 <div class="card">
                     <div class="card-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                        </svg>
                     </div>
-                    <h3>Молниеносная скорость</h3>
-                    <p>Оптимизированные алгоритмы загрузки позволяют скачивать видео быстрее, чем когда-либо.</p>
+                    <h3>Максимальная скорость</h3>
+                    <p>Мгновенная загрузка видео с YouTube без ограничений скорости.</p>
                 </div>
 
                 <div class="card">
                     <div class="card-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
                     </div>
                     <h3>Поддержка 4K</h3>
                     <p>Скачивайте видео в лучшем качестве, вплоть до 4K и 8K 60fps.</p>
@@ -81,7 +125,9 @@
 
                 <div class="card">
                     <div class="card-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
                     </div>
                     <h3>Безопасность</h3>
                     <p>Никакой рекламы и скрытых установок. Только чистое приложение.</p>
@@ -97,4 +143,5 @@
     </footer>
 
 </body>
+
 </html>
