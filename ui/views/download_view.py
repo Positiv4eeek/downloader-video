@@ -5,6 +5,7 @@ import re
 from flet import Icons, Colors, MainAxisAlignment
 from core.logic import VideoDownloader, DownloadCancelled
 from core.utils import open_path
+from ui.theme import ThemeColors, DesignSystem
 from ui.components import StyledTextField, PrimaryButton, StatBadge, QueueItem
 
 class DownloadView(ft.Column):
@@ -25,30 +26,10 @@ class DownloadView(ft.Column):
         self.visible = True
         self.expand = True
 
-        self.page.on_window_event = self.on_window_event
         self._setup_ui()
 
-    def on_window_event(self, e):
-        if e.data == "focus" and self.app_state.monitor_clipboard:
-            self.check_clipboard_for_url()
-
-    def check_clipboard_for_url(self):
-        self.page.run_task(self._check_clipboard_async)
-
-    async def _check_clipboard_async(self):
-        text = await self.page.get_clipboard_async()
-        if text and (text.startswith("http://") or text.startswith("https://")):
-            if text != self.url_input.value:
-                self.url_input.value = text
-                self.validate_input(None)
-                self.url_input.update()
-                
-                self.page.snack_bar = ft.SnackBar(ft.Text(f"URL found: {text}"), duration=2000, bgcolor=Colors.BLUE_900)
-                self.page.snack_bar.open = True
-                self.page.update()
-
     def _setup_ui(self):
-        self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Paste", icon_color=Colors.BLUE_ACCENT, on_click=self.paste_from_clipboard)
+        self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Paste", icon_color=ThemeColors.PRIMARY, on_click=self.paste_from_clipboard)
         self.url_input = StyledTextField(
             self.app_state.get_str("url_label"), 
             self.app_state.get_str("url_hint"), 
@@ -64,23 +45,24 @@ class DownloadView(ft.Column):
             visible=False
         )
 
-        self.preview_img = ft.Image(src="", width=120, height=70, fit="cover", border_radius=10, visible=False)
+        self.preview_img = ft.Image(src="", width=120, height=70, fit="cover", border_radius=12, visible=False)
         self.skeleton = ft.Container(
             width=120, height=70, 
-            bgcolor=Colors.with_opacity(0.1, Colors.WHITE), 
-            border_radius=10, 
+            bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.WHITE), 
+            border_radius=12, 
             visible=False, 
             animate_opacity=500,
             alignment=ft.alignment.center,
-            content=ft.Icon(Icons.IMAGE_NOT_SUPPORTED_ROUNDED, color=Colors.with_opacity(0.2, Colors.WHITE))
+            content=ft.Icon(Icons.IMAGE_NOT_SUPPORTED_ROUNDED, color=ft.Colors.with_opacity(0.2, ft.Colors.WHITE))
         )
-        self.video_title = ft.Text("", weight="bold", size=14, max_lines=2, overflow="ellipsis")
+        self.video_title = ft.Text("", weight="bold", size=14, max_lines=2, overflow="ellipsis", color=ThemeColors.TEXT_MAIN)
         
         self.preview_card = ft.Container(
             visible=False, 
             padding=15, 
             border_radius=20, 
-            bgcolor=Colors.with_opacity(0.05, Colors.WHITE),
+            bgcolor=ft.Colors.with_opacity(0.05, ft.Colors.WHITE),
+            border=ft.border.all(1, ft.Colors.with_opacity(0.1, ft.Colors.WHITE)),
             content=ft.Row([
                 ft.Stack([self.skeleton, self.preview_img]), 
                 ft.Column([self.video_title], expand=True)
@@ -92,39 +74,47 @@ class DownloadView(ft.Column):
             icon=Icons.LIST_ALT_ROUNDED, 
             visible=False,
             on_click=self.open_playlist_dialog,
-            style=ft.ButtonStyle(bgcolor=Colors.BLUE_GREY_800, color=Colors.WHITE)
+            style=ft.ButtonStyle(bgcolor=ft.Colors.with_opacity(0.1, ThemeColors.PRIMARY), color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=12))
         )
 
-        self.quality_dd = ft.Dropdown(value="best", options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], border_radius=12, expand=True, text_size=13)
-        self.audio_format_dd = ft.Dropdown(value="mp3", options=[ft.dropdown.Option(k) for k in ["mp3", "m4a", "wav"]], width=80, text_size=12, content_padding=5, visible=False)
-        self.audio_bitrate_dd = ft.Dropdown(value="192", options=[ft.dropdown.Option(k, f"{k}k") for k in ["128", "192", "320"]], width=80, text_size=12, content_padding=5, visible=False)
+        self.quality_dd = ft.Dropdown(value="best", options=[ft.dropdown.Option("best", self.app_state.get_str("quality_best"))], border_radius=15, expand=True, text_size=13, border_color=ft.Colors.with_opacity(0.1, ft.Colors.WHITE30))
+        self.audio_format_dd = ft.Dropdown(value="mp3", options=[ft.dropdown.Option(k) for k in ["mp3", "m4a", "wav"]], width=80, text_size=12, content_padding=5, visible=False, border_radius=10)
+        self.audio_bitrate_dd = ft.Dropdown(value="192", options=[ft.dropdown.Option(k, f"{k}k") for k in ["128", "192", "320"]], width=80, text_size=12, content_padding=5, visible=False, border_radius=10)
         
-        self.audio_switch = ft.Switch(label=self.app_state.get_str("audio_only_switch"), value=False, on_change=self.toggle_audio_options)
+        self.audio_switch = ft.Switch(label=self.app_state.get_str("audio_only_switch"), value=False, on_change=self.toggle_audio_options, active_color=ThemeColors.PRIMARY)
         self.audio_options_row = ft.Row([self.audio_format_dd, self.audio_bitrate_dd], visible=False, spacing=5)
 
-        self.subs_switch = ft.Switch(label=self.app_state.get_str("subs_switch"), value=self.app_state.download_subs)
-        self.playlist_switch = ft.Switch(label=self.app_state.get_str("playlist_switch"), value=False)
-        self.open_folder_switch = ft.Checkbox(label=self.app_state.get_str("open_folder_check"), value=False, label_style=ft.TextStyle(size=12, color=Colors.BLUE_GREY_200))
+        self.subs_switch = ft.Switch(label=self.app_state.get_str("subs_switch"), value=self.app_state.download_subs, active_color=ThemeColors.PRIMARY)
+        self.playlist_switch = ft.Switch(label=self.app_state.get_str("playlist_switch"), value=False, active_color=ThemeColors.PRIMARY)
+        self.open_folder_switch = ft.Checkbox(label=self.app_state.get_str("open_folder_check"), value=False, label_style=ft.TextStyle(size=12, color=ThemeColors.TEXT_DIM), fill_color=ThemeColors.PRIMARY)
 
         self.download_btn = PrimaryButton(self.app_state.get_str("add_btn"), Icons.ADD_TO_PHOTOS_ROUNDED, self.add_to_queue)
         
-        self.speed_text = ft.Text("0 MB/s", size=13, weight="bold")
-        self.eta_text = ft.Text("--:--", size=13, weight="bold")
-        self.progress_bar = ft.ProgressBar(value=0, color=Colors.BLUE_ACCENT, height=6, border_radius=10)
-        self.status_text = ft.Text(self.app_state.get_str("status_ready"), size=12, color=Colors.BLUE_GREY_400)
-        self.cancel_btn = ft.ElevatedButton("STOP", icon=Icons.CANCEL, bgcolor=Colors.RED_700, color="white", visible=False, on_click=self.cancel_current)
+        self.speed_text = ft.Text("0 MB/s", size=13, weight="bold", color=ThemeColors.TEXT_MAIN)
+        self.eta_text = ft.Text("--:--", size=13, weight="bold", color=ThemeColors.TEXT_MAIN)
+        self.progress_bar = ft.ProgressBar(value=0, color=ThemeColors.PRIMARY, height=8, border_radius=10)
+        self.status_text = ft.Text(self.app_state.get_str("status_ready"), size=12, color=ThemeColors.TEXT_DIM)
+        self.cancel_btn = ft.Container(
+            content=ft.IconButton(Icons.STOP, icon_color=ft.Colors.RED_400, on_click=self.cancel_current, tooltip="Stop Download"),
+            visible=False
+        )
         
-        self.queue_btn = ft.TextButton(text="", icon=Icons.LIST_ROUNDED, icon_color=Colors.ORANGE_ACCENT, visible=False, on_click=self.show_queue_modal)
+        self.queue_btn = ft.TextButton(text="", icon=Icons.LIST_ROUNDED, icon_color=ThemeColors.PRIMARY_LIGHT, visible=False, on_click=self.show_queue_modal)
 
         self.progress_container = ft.Container(
-            visible=True, padding=20, border_radius=20, bgcolor=Colors.with_opacity(0.02, Colors.WHITE),
+            visible=True, padding=20, border_radius=25, 
+            bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.WHITE),
+            border=ft.border.all(1, ft.Colors.with_opacity(0.05, ft.Colors.WHITE)),
             content=ft.Column([
-                ft.Row([self.queue_btn], alignment=MainAxisAlignment.END), 
+                ft.Row([
+                    ft.Text("PROGRESS", size=10, weight="bold", color=ThemeColors.TEXT_DIM),
+                    self.queue_btn
+                ], alignment=MainAxisAlignment.SPACE_BETWEEN), 
                 ft.Row([
                     StatBadge(Icons.SPEED_ROUNDED, "SPEED", self.speed_text), 
                     StatBadge(Icons.TIMER_ROUNDED, self.app_state.get_str("eta"), self.eta_text)
                 ], spacing=15),
-                self.progress_bar,
+                ft.Container(self.progress_bar, padding=ft.padding.symmetric(vertical=5), shadow=DesignSystem.SHADOW_GLOW),
                 ft.Row([self.status_text, self.cancel_btn], alignment=MainAxisAlignment.SPACE_BETWEEN)
             ])
         )
@@ -142,7 +132,7 @@ class DownloadView(ft.Column):
         ]
 
         self.queue_list_view = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
-        self.pause_queue_switch = ft.Switch(label="Pause Queue", value=False, on_change=self.toggle_queue_pause)
+        self.pause_queue_switch = ft.Switch(label="Pause Queue", value=False, on_change=self.toggle_queue_pause, active_color=ThemeColors.PRIMARY)
         
         self.queue_bottom_sheet = ft.BottomSheet(
             ft.Container(
@@ -151,18 +141,20 @@ class DownloadView(ft.Column):
                         ft.Text(self.app_state.get_str("queue_title"), size=20, weight="bold"),
                         ft.Row([
                              self.pause_queue_switch,
-                             ft.IconButton(Icons.DELETE_SWEEP_ROUNDED, tooltip=self.app_state.get_str("clear_queue"), on_click=self.clear_queue_all)
+                             ft.IconButton(Icons.DELETE_SWEEP_ROUNDED, tooltip=self.app_state.get_str("clear_queue"), on_click=self.clear_queue_all, icon_color=ft.Colors.RED_400)
                         ])
                     ], alignment=MainAxisAlignment.SPACE_BETWEEN),
-                    ft.Divider(),
+                    ft.Divider(color=ft.Colors.with_opacity(0.1, ft.Colors.WHITE)),
                     ft.Container(self.queue_list_view, height=300), 
-                    ft.ElevatedButton("Close", on_click=lambda _: self.page.close_bottom_sheet())
+                    PrimaryButton("Close", Icons.CLOSE_ROUNDED, lambda _: self.page.close_bottom_sheet())
                 ]),
-                padding=20,
-                bgcolor=Colors.GREY_900, 
-                border_radius=ft.border_radius.only(top_left=20, top_right=20)
+                padding=25,
+                bgcolor=ThemeColors.BG_CARD,
+                border_radius=ft.border_radius.only(top_left=30, top_right=30),
+                border=ft.border.only(top=ft.border.BorderSide(1, ft.Colors.with_opacity(0.1, ft.Colors.WHITE)))
             )
         )
+
         
         self.playlist_dialog = ft.AlertDialog(
             title=ft.Text("Выберите видео"),

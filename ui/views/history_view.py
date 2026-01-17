@@ -1,5 +1,6 @@
 import flet as ft
-from flet import Colors, Icons
+from flet import Icons
+from ui.theme import ThemeColors, DesignSystem
 from ui.components import HistoryCard
 from core.utils import open_path
 
@@ -10,17 +11,33 @@ class HistoryView(ft.Column):
         self.app_state = app_state
         self.visible = False
         self.expand = True
+        self.spacing = 15
         
         self.history_list = ft.ListView(expand=True, spacing=12)
         self.controls = [
-            ft.Text("Недавние", size=18, weight="bold"),
+            ft.Container(
+                content=ft.Row([
+                    ft.Icon(Icons.HISTORY_ROUNDED, color=ThemeColors.PRIMARY, size=24),
+                    ft.Text("Недавние", size=20, weight="bold", color=ThemeColors.TEXT_MAIN),
+                ], spacing=10),
+                padding=ft.padding.only(bottom=5)
+            ),
             self.history_list
         ]
 
     def refresh(self):
         self.history_list.controls.clear()
         if not self.app_state.history:
-            self.history_list.controls.append(ft.Text("История пуста", text_align="center", color=Colors.GREY))
+            self.history_list.controls.append(
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(Icons.HISTORY_TOGGLE_OFF_ROUNDED, size=50, color=ft.Colors.with_opacity(0.1, ft.Colors.WHITE)),
+                        ft.Text("История пуста", text_align="center", color=ThemeColors.TEXT_DIM, size=14),
+                    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                    expand=True,
+                    alignment=ft.alignment.center
+                )
+            )
         else:
             for item in reversed(self.app_state.history):
                 self.history_list.controls.append(HistoryCard(
