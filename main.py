@@ -7,7 +7,7 @@ from core.utils import check_ffmpeg, install_ffmpeg_windows, get_ffmpeg_path
 from ui.views.download_view import DownloadView
 from ui.views.history_view import HistoryView
 from ui.views.settings_view import SettingsView
-from ui.theme import ThemeColors, DesignSystem
+from ui.theme import ThemeColors, DesignSystem, get_app_theme
 
 def main(page: ft.Page):
     # 1. Инициализация состояния
@@ -18,6 +18,8 @@ def main(page: ft.Page):
     page.window_height = 900
     page.padding = 0
     page.bgcolor = ThemeColors.BG_DARK
+    page.theme = get_app_theme()
+    page.dark_theme = get_app_theme()  # Применяем и для темной темы
     
     app_state.set_theme(app_state.theme_mode)
     

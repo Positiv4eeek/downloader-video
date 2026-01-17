@@ -120,15 +120,20 @@ class DownloadView(ft.Column):
         )
 
         self.controls = [
-            self.url_input, 
-            self.filename_input,
-            self.preview_card,
-            self.select_videos_btn,
-            ft.Row([self.quality_dd]),
-            ft.Row([self.audio_switch, self.audio_options_row], alignment=MainAxisAlignment.SPACE_BETWEEN),
-            ft.Row([self.playlist_switch, self.subs_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
-            self.open_folder_switch,
-            self.download_btn, self.progress_container
+            ft.Container(
+                padding=ft.padding.only(right=20, left=5, top=5, bottom=5),
+                content=ft.Column([
+                    self.url_input, 
+                    self.filename_input,
+                    self.preview_card,
+                    self.select_videos_btn,
+                    ft.Row([self.quality_dd]),
+                    ft.Row([self.audio_switch, self.audio_options_row], alignment=MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Row([self.playlist_switch, self.subs_switch], alignment=MainAxisAlignment.SPACE_BETWEEN),
+                    self.open_folder_switch,
+                    self.download_btn, self.progress_container
+                ], spacing=15)
+            )
         ]
 
         self.queue_list_view = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)

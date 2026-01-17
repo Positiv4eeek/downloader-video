@@ -38,5 +38,31 @@ class DesignSystem:
     BORDER_RADIUS = 20
     BORDER_WIDTH = 1.5
 
+
+def get_app_theme():
+    # Настраиваем тему скроллбара
+    scrollbar_theme = ft.ScrollbarTheme(
+        thickness=6,
+        radius=10,
+        main_axis_margin=10,
+        cross_axis_margin=10,
+        thumb_color={
+            ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.3, ThemeColors.PRIMARY),
+            ft.ControlState.HOVERED: ThemeColors.PRIMARY,
+        },
+        track_color=ft.Colors.TRANSPARENT,
+        track_border_color=ft.Colors.TRANSPARENT,
+    )
+
+    return ft.Theme(
+        scrollbar_theme=scrollbar_theme,
+        color_scheme=ft.ColorScheme(
+            primary=ThemeColors.PRIMARY,
+            on_primary=ft.Colors.WHITE,
+            background=ThemeColors.BG_DARK,
+            surface=ThemeColors.BG_CARD,
+        )
+    )
+
 def get_theme_mode():
     return ft.ThemeMode.DARK

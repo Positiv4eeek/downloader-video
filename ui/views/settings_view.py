@@ -58,27 +58,32 @@ class SettingsView(ft.Column):
 
     def _update_controls(self):
         self.controls = [
-            ft.Row([
-                ft.Icon(Icons.SETTINGS_ROUNDED, color=ThemeColors.PRIMARY, size=24),
-                self.title_text,
-            ], spacing=10),
-            
-            ft.Container(height=5),
-            SettingTile(Icons.LANGUAGE_ROUNDED, self.lang_label, self.lang_dd),
-            SettingTile(Icons.DARK_MODE_ROUNDED, self.theme_label, self.theme_switch),
-            SettingTile(Icons.FOLDER_OPEN_ROUNDED, self.folder_label, 
-                ft.Row([self.path_display, ft.IconButton(Icons.EDIT_ROUNDED, on_click=lambda _: self.path_picker.get_directory_path(), icon_color=ThemeColors.PRIMARY, icon_size=20)], spacing=0)),
+            ft.Container(
+                padding=ft.padding.only(right=20, left=5, top=5, bottom=5),
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(Icons.SETTINGS_ROUNDED, color=ThemeColors.PRIMARY, size=24),
+                        self.title_text,
+                    ], spacing=10),
+                    
+                    ft.Container(height=5),
+                    SettingTile(Icons.LANGUAGE_ROUNDED, self.lang_label, self.lang_dd),
+                    SettingTile(Icons.DARK_MODE_ROUNDED, self.theme_label, self.theme_switch),
+                    SettingTile(Icons.FOLDER_OPEN_ROUNDED, self.folder_label, 
+                        ft.Row([self.path_display, ft.IconButton(Icons.EDIT_ROUNDED, on_click=lambda _: self.path_picker.get_directory_path(), icon_color=ThemeColors.PRIMARY, icon_size=20)], spacing=0)),
 
-            ft.Divider(height=30, color=ft.Colors.with_opacity(0.05, ft.Colors.WHITE)),
-            self.system_label,
-            SettingTile(Icons.PASTE, self.clipboard_label, self.monitor_clipboard_switch),
-            SettingTile(Icons.AUTO_FIX_HIGH, self.meta_label, self.embed_meta_switch),
-            SettingTile(Icons.CUT, self.sb_label, self.sb_switch),
-            
-            SettingTile(Icons.SYSTEM_UPDATE_ALT, "Core Engine", self.update_btn),
-            
-            SettingTile(Icons.DELETE_SWEEP_ROUNDED, "Data", 
-                PrimaryButton(self.app_state.get_str("clear_history"), Icons.DELETE_OUTLINE_ROUNDED, self.clear_history))
+                    ft.Divider(height=30, color=ft.Colors.with_opacity(0.05, ft.Colors.WHITE)),
+                    self.system_label,
+                    SettingTile(Icons.PASTE, self.clipboard_label, self.monitor_clipboard_switch),
+                    SettingTile(Icons.AUTO_FIX_HIGH, self.meta_label, self.embed_meta_switch),
+                    SettingTile(Icons.CUT, self.sb_label, self.sb_switch),
+                    
+                    SettingTile(Icons.SYSTEM_UPDATE_ALT, "Core Engine", self.update_btn),
+                    
+                    SettingTile(Icons.DELETE_SWEEP_ROUNDED, "Data", 
+                        PrimaryButton(self.app_state.get_str("clear_history"), Icons.DELETE_OUTLINE_ROUNDED, self.clear_history))
+                ], spacing=15)
+            )
         ]
 
     def update_locale(self):

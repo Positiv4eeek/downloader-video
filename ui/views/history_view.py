@@ -11,7 +11,7 @@ class HistoryView(ft.Column):
         self.app_state = app_state
         self.visible = False
         
-        self.history_list = ft.ListView(expand=True, spacing=12)
+        self.history_list = ft.ListView(expand=True, spacing=12, padding=ft.padding.only(right=20, left=5, top=5, bottom=5))
         self.controls = [
             ft.Container(
                 content=ft.Row([
