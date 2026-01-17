@@ -2,6 +2,7 @@ import flet as ft
 import threading
 import os
 import re
+import time
 from flet import Icons, Colors, MainAxisAlignment
 from core.logic import VideoDownloader, DownloadCancelled
 from core.utils import open_path
@@ -170,6 +171,9 @@ class DownloadView(ft.Column):
             ],
             modal=True
         )
+
+        # Запуск мониторинга буфера
+        threading.Thread(target=self._monitor_loop, daemon=True).start()
 
     def update_locale(self):
         self.url_input.label = self.app_state.get_str("url_label")
@@ -489,3 +493,28 @@ class DownloadView(ft.Column):
 
     def cancel_current(self, e):
         if self.current_downloader: self.current_downloader.cancel()
+
+    def _monitor_loop(self):
+        last_val = ""
+        while True:
+            try:
+                if self.app_state.monitor_clipboard:
+                    # Пытаемся получить текст из буфера (синхронно)
+                    # Note: get_clipboard returns None or string
+                    val = self.page.get_clipboard() 
+                    if val and isinstance(val, str):
+                        val = val.strip()
+                        if val != last_val:
+                            last_val = val
+                            # Проверяем, что это не то, что уже в поле, и похоже на ссылку youtube
+                            if val != self.url_input.value and ("youtube.com" in val or "youtu.be" in val):
+                                self.url_input.value = val
+                                self.validate_input(None)
+                                self.update()
+                                self.show_msg(self.app_state.get_str("status_ready") + " (Clipboard detected)", Colors.GREEN)
+            except Exception as e:
+                # Игнорируем ошибки (например, если страница закрылась или таймаут)
+                # print(f"Clip error: {e}") 
+                pass
+            
+            time.sleep(2)
