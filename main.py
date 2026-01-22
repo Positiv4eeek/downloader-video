@@ -119,7 +119,7 @@ def main(page: ft.Page):
                         content=ft.Row([
                             ft.Row([
                                 ft.Icon(Icons.PLAY_CIRCLE_FILL_ROUNDED, color=ThemeColors.PRIMARY, size=30),
-                                ft.Text("YT LOADER", size=18, weight="bold"),
+                                ft.Text("LOADER", size=18, weight="bold"),
                             ], spacing=10),
                             ft.Row([nav_home, nav_hist, nav_sett], spacing=5)
                         ], alignment=MainAxisAlignment.SPACE_BETWEEN),
