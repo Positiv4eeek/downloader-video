@@ -69,27 +69,33 @@ def StatBadge(icon, label, value_ref):
         expand=True
     )
 
-def QueueItem(idx, item_data, status, on_remove, on_move_up, on_move_down, total_items):
-    url = item_data['url']
-    quality = item_data['quality']
-    custom_name = item_data.get('filename')
+def QueueItem(idx, task, status, on_remove, on_move_up, on_move_down, total_items):
+    url = task.url
+    quality = task.options.get('quality', 'best')
+    custom_name = task.options.get('filename')
     
     status_colors = {
         "waiting": Colors.GREY_500,
         "downloading": ThemeColors.PRIMARY,
         "done": Colors.GREEN_ACCENT,
+        "finished": Colors.GREEN_ACCENT,
+        "error": Colors.RED_400,
+        "cancelled": Colors.ORANGE_400
     }
     
     status_icons = {
         "waiting": Icons.HOURGLASS_EMPTY_ROUNDED, 
         "downloading": Icons.SYNC_ROUNDED, 
         "done": Icons.CHECK_CIRCLE_ROUNDED,
+        "finished": Icons.CHECK_CIRCLE_ROUNDED,
+        "error": Icons.ERROR_OUTLINE_ROUNDED,
+        "cancelled": Icons.CANCEL_OUTLINED
     }
 
     current_icon = status_icons.get(status, Icons.CIRCLE)
     current_color = status_colors.get(status, Colors.GREY)
     
-    display_title = custom_name if custom_name else url
+    display_title = task.title if task.title else (custom_name if custom_name else url)
     is_active = status == "downloading"
 
     return ft.Container(

@@ -2,15 +2,14 @@ import flet as ft
 import threading
 import os
 import re
-import time
 from flet import Icons, Colors, MainAxisAlignment
-from core.logic import VideoDownloader, DownloadCancelled
+from core.download_manager import DownloadManager, DownloadTask
 from core.utils import open_path
 from ui.theme import ThemeColors, DesignSystem
 from ui.components import StyledTextField, PrimaryButton, StatBadge, QueueItem
 
 class DownloadView(ft.Column):
-    def __init__(self, page: ft.Page, app_state):
+    def __init__(self, page: ft.Page, app_state, download_manager: DownloadManager):
         super().__init__(
             spacing=15,
             expand=True,
@@ -18,16 +17,22 @@ class DownloadView(ft.Column):
         )
         self.page = page
         self.app_state = app_state
-        self.download_queue = []
-        self.is_processing = False
-        self.queue_paused = False
-        self.current_downloader = None
-        self.downloader_logic = VideoDownloader(None)
+        self.download_manager = download_manager
         
         self.playlist_entries = []
         self.selected_indices = []
 
         self._setup_ui()
+        self._bind_manager()
+
+    def _bind_manager(self):
+        self.download_manager.set_callbacks(
+            on_queue_update=self.update_queue_ui,
+            on_progress=self.on_progress,
+            on_status_change=self.on_status_change,
+            on_clipboard_found=self.on_clipboard_found
+        )
+        self.download_manager.start_clipboard_monitor(self.page.get_clipboard)
 
     def _setup_ui(self):
         self.paste_btn = ft.IconButton(Icons.PASTE_ROUNDED, tooltip="Paste", icon_color=ThemeColors.PRIMARY, on_click=self.paste_from_clipboard)
@@ -160,7 +165,6 @@ class DownloadView(ft.Column):
                 border=ft.border.only(top=ft.border.BorderSide(1, ft.Colors.with_opacity(0.1, ft.Colors.WHITE)))
             )
         )
-
         
         self.playlist_dialog = ft.AlertDialog(
             title=ft.Text("Выберите видео"),
@@ -171,9 +175,6 @@ class DownloadView(ft.Column):
             ],
             modal=True
         )
-
-        # Запуск мониторинга буфера
-        threading.Thread(target=self._monitor_loop, daemon=True).start()
 
     def update_locale(self):
         self.url_input.label = self.app_state.get_str("url_label")
@@ -190,38 +191,58 @@ class DownloadView(ft.Column):
         self.update()
 
     def toggle_queue_pause(self, e):
-        self.queue_paused = self.pause_queue_switch.value
-        if not self.queue_paused and not self.is_processing and self.download_queue:
-            threading.Thread(target=self.process_queue, daemon=True).start()
+        self.download_manager.toggle_pause(self.pause_queue_switch.value)
 
     def move_item_up(self, index):
-        if index > 0 and index < len(self.download_queue):
-            if self.is_processing and index == 1: return 
-            self.download_queue[index], self.download_queue[index-1] = self.download_queue[index-1], self.download_queue[index]
-            self.update_queue_ui()
+        self.download_manager.move_task(index, index - 1)
 
     def move_item_down(self, index):
-        if index < len(self.download_queue) - 1:
-            if self.is_processing and index == 0: return
-            self.download_queue[index], self.download_queue[index+1] = self.download_queue[index+1], self.download_queue[index]
-            self.update_queue_ui()
+        self.download_manager.move_task(index, index + 1)
 
     def update_queue_ui(self):
-        count = len(self.download_queue)
+        queue = self.download_manager.queue
+        count = len(queue)
         self.queue_btn.text = f"{count}"
         self.queue_btn.visible = count > 0
         
         self.queue_list_view.controls.clear()
-        if not self.download_queue:
+        if not queue:
             self.queue_list_view.controls.append(ft.Text(self.app_state.get_str("queue_empty"), color=Colors.GREY))
         else:
-            for i, item in enumerate(self.download_queue):
-                status = "waiting"
-                if i == 0 and self.is_processing: status = "downloading"
+            for i, item in enumerate(queue):
+                # item is DownloadTask
                 self.queue_list_view.controls.append(
-                    QueueItem(i, item, status, self.remove_from_queue, self.move_item_up, self.move_item_down, count)
+                    QueueItem(i, item, item.status, self.remove_from_queue, self.move_item_up, self.move_item_down, count)
                 )
         self.page.update()
+
+    def on_progress(self, task: DownloadTask):
+        self.progress_bar.value = task.progress
+        self.status_text.value = f"{task.progress*100:.1f}%"
+        self.speed_text.value = task.speed
+        self.eta_text.value = task.eta
+        self.page.update()
+        
+    def on_status_change(self, msg, color):
+        self.status_text.value = msg
+        if color == "red":
+             self.show_msg(msg, Colors.RED_700)
+        elif color == "green":
+             self.show_msg(msg, Colors.GREEN_700)
+             if self.open_folder_switch.value:
+                  open_path(self.app_state.download_path)
+             
+             # Reset progress visually after delay/user action if needed, 
+             # but here we rely on the next task or manual reset.
+             
+        self.cancel_btn.visible = (self.download_manager.is_processing)
+        self.page.update()
+
+    def on_clipboard_found(self, val):
+        self.url_input.value = val
+        self.validate_input(None)
+        self.update()
+        self.show_msg(self.app_state.get_str("status_ready") + " (Clipboard detected)", Colors.GREEN)
 
     def toggle_audio_options(self, e):
         visible = self.audio_switch.value
@@ -271,8 +292,7 @@ class DownloadView(ft.Column):
 
         def load_task():
             try:
-                # ВЫЗОВ БЕЗ ПРОКСИ/КУКИ
-                info = self.downloader_logic.get_video_info(url)
+                info = self.download_manager.get_video_info(url)
                 
                 self.video_title.value = info.get('title', 'Video')
                 
@@ -363,8 +383,7 @@ class DownloadView(ft.Column):
         
         playlist_str = ",".join(self.selected_indices) if self.selected_indices else None
 
-        self.download_queue.append({
-            'url': self.url_input.value,
+        options = {
             'quality': self.quality_dd.value,
             'audio_only': self.audio_switch.value,
             'audio_format': self.audio_format_dd.value,
@@ -374,98 +393,23 @@ class DownloadView(ft.Column):
             'subs': self.subs_switch.value,
             'playlist_items': playlist_str, 
             'sponsor_block': self.app_state.sponsor_block,
-            'thumb': self.preview_img.src if self.preview_img.visible else ""
-        })
+        }
+        
+        self.download_manager.add_task(
+            self.url_input.value, 
+            options,
+            title=self.filename_input.value or "Video",
+            thumb=self.preview_img.src if self.preview_img.visible else ""
+        )
+
         self.url_input.value = ""
         self.filename_input.value = ""
         self.filename_input.visible = False
         self.preview_card.visible = False
         self.select_videos_btn.visible = False
         self.selected_indices = []
-        self.update_queue_ui()
+        
         self.show_msg("Added to queue")
-        
-        if not self.is_processing and not self.queue_paused: 
-            threading.Thread(target=self.process_queue, daemon=True).start()
-
-    def process_queue(self):
-        self.is_processing = True
-        while self.download_queue:
-            if self.queue_paused: break
-
-            task = self.download_queue[0]
-            self.update_queue_ui()
-            
-            self.cancel_btn.visible = True
-            self.status_text.value = self.app_state.get_str("status_downloading")
-            self.page.update()
-
-            self.current_downloader = VideoDownloader(self.on_progress)
-            
-            try:
-                # ВЫЗОВ БЕЗ ПРОКСИ/КУКИ
-                downloaded_files = self.current_downloader.download(
-                    task['url'], self.app_state.download_path, 
-                    quality=task['quality'], 
-                    audio_only=task['audio_only'],
-                    audio_format=task.get('audio_format', 'mp3'),
-                    audio_bitrate=task.get('audio_bitrate', '192'),
-                    allow_playlist=task['playlist'],
-                    custom_filename=task.get('filename'),
-                    embed_meta=self.app_state.embed_meta,
-                    download_subs=task.get('subs', False),
-                    use_sponsor_block=task.get('sponsor_block', False),
-                    playlist_items=task.get('playlist_items')
-                )
-                
-                for file_path in downloaded_files:
-                    title = os.path.basename(file_path)
-                    self.app_state.add_history_item({
-                        "title": title,
-                        "author": "YouTube", 
-                        "thumb": task.get('thumb', ""),
-                        "path": self.app_state.download_path,            
-                        "file_path": file_path,      
-                        "url": task['url']                
-                    })
-                
-                self.show_msg(self.app_state.get_str("status_finished"), Colors.GREEN_700)
-                
-                if self.open_folder_switch.value:
-                    open_path(self.app_state.download_path)
-                
-            except DownloadCancelled: self.show_msg("Cancelled", Colors.ORANGE_700)
-            except Exception as ex: self.show_msg(f"Error: {str(ex)[:50]}", Colors.RED_700)
-            finally:
-                self.current_downloader = None
-                self.speed_text.value = "0 MB/s"
-                self.eta_text.value = "--:--"
-                self.progress_bar.value = 0
-                if self.download_queue: self.download_queue.pop(0)
-                self.update_queue_ui()
-        
-        self.is_processing = False
-        self.cancel_btn.visible = False
-        self.status_text.value = self.app_state.get_str("status_ready")
-        self.page.update()
-
-    def on_progress(self, d):
-        if d['status'] == 'downloading':
-            try:
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 1)
-                downloaded = d.get('downloaded_bytes', 0)
-                p = downloaded / total
-                
-                self.progress_bar.value = p
-                self.status_text.value = f"{p*100:.1f}%"
-                self.speed_text.value = d.get('_speed_str', '--')
-                self.eta_text.value = d.get('_eta_str', '--:--')
-                self.page.update()
-            except: pass
-        elif d['status'] == 'finished':
-            self.progress_bar.value = 1.0
-            self.status_text.value = self.app_state.get_str("status_processing")
-            self.page.update()
 
     def show_msg(self, text, color=Colors.BLUE_ACCENT):
         self.page.snack_bar = ft.SnackBar(content=ft.Text(text), bgcolor=color)
@@ -473,16 +417,10 @@ class DownloadView(ft.Column):
         self.page.update()
 
     def remove_from_queue(self, idx):
-        if 0 <= idx < len(self.download_queue):
-            del self.download_queue[idx]
-            self.update_queue_ui()
+        self.download_manager.remove_task(idx)
 
     def clear_queue_all(self, e):
-        if self.is_processing and self.download_queue:
-            self.download_queue = [self.download_queue[0]]
-        else:
-            self.download_queue = []
-        self.update_queue_ui()
+        self.download_manager.clear_queue()
 
     def show_queue_modal(self, e):
         is_dark = self.app_state.theme_mode == "dark"
@@ -492,29 +430,4 @@ class DownloadView(ft.Column):
         self.page.update()
 
     def cancel_current(self, e):
-        if self.current_downloader: self.current_downloader.cancel()
-
-    def _monitor_loop(self):
-        last_val = ""
-        while True:
-            try:
-                if self.app_state.monitor_clipboard:
-                    # Пытаемся получить текст из буфера (синхронно)
-                    # Note: get_clipboard returns None or string
-                    val = self.page.get_clipboard() 
-                    if val and isinstance(val, str):
-                        val = val.strip()
-                        if val != last_val:
-                            last_val = val
-                            # Проверяем, что это не то, что уже в поле, и похоже на ссылку youtube
-                            if val != self.url_input.value and ("youtube.com" in val or "youtu.be" in val):
-                                self.url_input.value = val
-                                self.validate_input(None)
-                                self.update()
-                                self.show_msg(self.app_state.get_str("status_ready") + " (Clipboard detected)", Colors.GREEN)
-            except Exception as e:
-                # Игнорируем ошибки (например, если страница закрылась или таймаут)
-                # print(f"Clip error: {e}") 
-                pass
-            
-            time.sleep(2)
+        self.download_manager.cancel_current()

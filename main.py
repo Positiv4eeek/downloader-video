@@ -3,6 +3,7 @@ import os
 from flet import Icons, Colors, MainAxisAlignment
 
 from core.state import AppState
+from core.download_manager import DownloadManager
 from core.utils import check_ffmpeg, install_ffmpeg_windows, get_ffmpeg_path
 from ui.views.download_view import DownloadView
 from ui.views.history_view import HistoryView
@@ -12,6 +13,7 @@ from ui.theme import ThemeColors, DesignSystem, get_app_theme
 def main(page: ft.Page):
     # 1. Инициализация состояния
     app_state = AppState(page)
+    download_manager = DownloadManager(app_state)
     
     page.title = app_state.get_str("app_title")
     page.window_width = 500
@@ -63,7 +65,7 @@ def main(page: ft.Page):
         dlg.open = True
 
     # 3. Создание Views
-    download_view = DownloadView(page, app_state)
+    download_view = DownloadView(page, app_state, download_manager)
     history_view = HistoryView(page, app_state)
     settings_view = SettingsView(page, app_state)
 
@@ -132,7 +134,6 @@ def main(page: ft.Page):
             )
         ], expand=True)
     )
-
 
 if __name__ == "__main__":
     ft.app(target=main)
