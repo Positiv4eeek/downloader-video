@@ -33,7 +33,6 @@ class SettingsView(ft.Column):
         
         self.monitor_clipboard_switch = ft.Switch(value=self.app_state.monitor_clipboard, on_change=self.toggle_clipboard, active_color=ThemeColors.PRIMARY)
         self.embed_meta_switch = ft.Switch(value=self.app_state.embed_meta, on_change=lambda e: self.app_state.set_embed_meta(e.control.value), active_color=ThemeColors.PRIMARY)
-        self.sb_switch = ft.Switch(value=self.app_state.sponsor_block, on_change=lambda e: self.app_state.set_sponsor_block(e.control.value), active_color=ThemeColors.PRIMARY)
 
         self.update_btn = ft.ElevatedButton(
             self.app_state.get_str("update_ytdlp_btn"), 
@@ -51,7 +50,6 @@ class SettingsView(ft.Column):
         self.folder_label = self.app_state.get_str("folder_download")
         self.clipboard_label = self.app_state.get_str("monitor_clipboard")
         self.meta_label = self.app_state.get_str("embed_meta_switch")
-        self.sb_label = self.app_state.get_str("sponsor_block_switch")
         self.system_label = ft.Text(self.app_state.get_str("system_section"), size=15, weight="bold", color=ThemeColors.TEXT_DIM)
 
         self._update_controls()
@@ -76,7 +74,6 @@ class SettingsView(ft.Column):
                     self.system_label,
                     SettingTile(Icons.PASTE, self.clipboard_label, self.monitor_clipboard_switch),
                     SettingTile(Icons.AUTO_FIX_HIGH, self.meta_label, self.embed_meta_switch),
-                    SettingTile(Icons.CUT, self.sb_label, self.sb_switch),
                     
                     SettingTile(Icons.SYSTEM_UPDATE_ALT, "Core Engine", self.update_btn),
                     
@@ -93,7 +90,6 @@ class SettingsView(ft.Column):
         self.folder_label = self.app_state.get_str("folder_download")
         self.clipboard_label = self.app_state.get_str("monitor_clipboard")
         self.meta_label = self.app_state.get_str("embed_meta_switch")
-        self.sb_label = self.app_state.get_str("sponsor_block_switch")
         self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
         self.system_label.value = self.app_state.get_str("system_section")
         self._update_controls()
@@ -145,7 +141,6 @@ class SettingsView(ft.Column):
         self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
         self.clipboard_label.value = self.app_state.get_str("monitor_clipboard")
         self.meta_label.value = self.app_state.get_str("embed_meta_switch")
-        self.sb_label.value = self.app_state.get_str("sponsor_block_switch")
         self.system_label.value = self.app_state.get_str("system_section")
         self.update()
 

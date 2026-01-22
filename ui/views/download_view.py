@@ -391,8 +391,8 @@ class DownloadView(ft.Column):
             'playlist': self.playlist_switch.value,
             'filename': self.filename_input.value.strip(),
             'subs': self.subs_switch.value,
+            'subs': self.subs_switch.value,
             'playlist_items': playlist_str, 
-            'sponsor_block': self.app_state.sponsor_block,
         }
         
         self.download_manager.add_task(

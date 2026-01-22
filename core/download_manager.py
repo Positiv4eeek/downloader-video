@@ -127,7 +127,6 @@ class DownloadManager:
                     custom_filename=opts.get('filename'),
                     embed_meta=self.app_state.embed_meta,
                     download_subs=opts.get('subs', False),
-                    use_sponsor_block=opts.get('sponsor_block', False),
                     playlist_items=opts.get('playlist_items')
                 )
                 

@@ -44,7 +44,7 @@ class VideoDownloader:
                  allow_playlist=False,
                  custom_filename=None, 
                  embed_meta=True, download_subs=False,
-                 use_sponsor_block=False, playlist_items=None):
+                 playlist_items=None):
         
         self.is_cancelled = False
         postprocessors = []
@@ -71,14 +71,6 @@ class VideoDownloader:
             postprocessors.append({'key': 'FFmpegMetadata'})
             if not audio_only or audio_format in ['mp3', 'm4a', 'flac']:
                 postprocessors.append({'key': 'EmbedThumbnail'})
-
-        # --- SPONSORBLOCK ---
-        if use_sponsor_block:
-            postprocessors.append({
-                'key': 'SponsorBlock',
-                'categories': ['sponsor', 'intro', 'outro', 'selfpromo', 'preview', 'interaction'],
-                'when': 'after_filter'
-            })
 
         # --- ИМЯ ФАЙЛА ---
         if custom_filename:

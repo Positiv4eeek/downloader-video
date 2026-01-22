@@ -41,7 +41,6 @@ STRINGS = {
         "monitor_clipboard": "Следить за буфером",
         "subs_switch": "Субтитры",
         "embed_meta_switch": "Вшить метаданные",
-        "sponsor_block_switch": "SponsorBlock (Пропуск рекламы)", # [NEW]
         "system_section": "Система",
     },
     "en": {
@@ -84,7 +83,6 @@ STRINGS = {
         "monitor_clipboard": "Monitor Clipboard",
         "subs_switch": "Subtitles",
         "embed_meta_switch": "Embed Metadata",
-        "sponsor_block_switch": "SponsorBlock (Skip segments)", # [NEW]
         "system_section": "System",
     }
 }

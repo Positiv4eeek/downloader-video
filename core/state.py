@@ -15,7 +15,6 @@ class AppState:
         self.monitor_clipboard = self.store.get("monitor_clipboard") or False
         self.embed_meta = self.store.get("embed_meta") or True
         self.download_subs = self.store.get("download_subs") or False
-        self.sponsor_block = self.store.get("sponsor_block") or False 
         
         self.language = self.store.get("language") or "ru"
         self._observers = []
@@ -58,9 +57,6 @@ class AppState:
         self.download_subs = value
         self.store.set("download_subs", value)
 
-    def set_sponsor_block(self, value: bool):
-        self.sponsor_block = value
-        self.store.set("sponsor_block", value)
 
     def add_history_item(self, item: dict):
         self.history.append(item)
