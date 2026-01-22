@@ -9,7 +9,6 @@ class AppState:
         
         self.download_path = self.store.get("download_path") or os.path.join(os.path.expanduser("~"), "Downloads")
         self.history = self.store.get("history") or []
-        self.theme_mode = self.store.get("theme") or "dark"
         
         # --- Settings ---
         self.monitor_clipboard = self.store.get("monitor_clipboard") or False
@@ -34,12 +33,6 @@ class AppState:
         self.store.set("language", lang)
         self.notify_observers()
 
-    def set_theme(self, mode: str):
-        self.theme_mode = mode
-        self.store.set("theme", mode)
-        self.page.theme_mode = ft.ThemeMode.DARK if mode == "dark" else ft.ThemeMode.LIGHT
-        self.page.bgcolor = "#0F111A" if mode == "dark" else "#F5F5F5"
-        self.page.update()
 
     def set_download_path(self, path: str):
         self.download_path = path

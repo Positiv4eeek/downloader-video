@@ -20,7 +20,6 @@ class SettingsView(ft.Column):
         self.page.overlay.extend([self.path_picker])
         
         self.path_display = ft.Text(self.app_state.download_path, size=11, color=ThemeColors.TEXT_DIM, max_lines=1, overflow="ellipsis", width=150, text_align="right")
-        self.theme_switch = ft.Switch(value=(self.app_state.theme_mode=="dark"), on_change=self.toggle_theme, active_color=ThemeColors.PRIMARY)
 
         # Выбор языка
         self.lang_dd = ft.Dropdown(
@@ -66,7 +65,6 @@ class SettingsView(ft.Column):
                     
                     ft.Container(height=5),
                     SettingTile(Icons.LANGUAGE_ROUNDED, self.lang_label, self.lang_dd),
-                    SettingTile(Icons.DARK_MODE_ROUNDED, self.theme_label, self.theme_switch),
                     SettingTile(Icons.FOLDER_OPEN_ROUNDED, self.folder_label, 
                         ft.Row([self.path_display, ft.IconButton(Icons.EDIT_ROUNDED, on_click=lambda _: self.path_picker.get_directory_path(), icon_color=ThemeColors.PRIMARY, icon_size=20)], spacing=0)),
 
@@ -119,8 +117,6 @@ class SettingsView(ft.Column):
 
     def change_language(self, e):
         self.app_state.set_language(self.lang_dd.value)
-    def toggle_theme(self, e):
-        self.app_state.set_theme("dark" if self.theme_switch.value else "light")
     def change_path_result(self, e):
         if e.path:
             self.app_state.set_download_path(e.path)
@@ -132,51 +128,3 @@ class SettingsView(ft.Column):
         self.page.snack_bar.open = True
         self.page.update()
 
-    def update_locale(self):
-        self.title_text.value = self.app_state.get_str("settings_title")
-        self.lang_label.value = self.app_state.get_str("lang_label")
-        self.theme_label.value = self.app_state.get_str("theme_dark")
-        self.folder_label.value = self.app_state.get_str("folder_download")
-        self.history_btn_text.value = self.app_state.get_str("clear_history")
-        self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
-        self.clipboard_label.value = self.app_state.get_str("monitor_clipboard")
-        self.meta_label.value = self.app_state.get_str("embed_meta_switch")
-        self.system_label.value = self.app_state.get_str("system_section")
-        self.update()
-
-    def toggle_clipboard(self, e):
-        self.app_state.set_monitor_clipboard(self.monitor_clipboard_switch.value)
-
-    def update_ytdlp(self, e):
-        self.update_btn.disabled = True
-        self.update_btn.text = "Updating..."
-        self.update()
-        
-        def run_update():
-            success = VideoDownloader.update_ytdlp()
-            self.update_btn.disabled = False
-            self.update_btn.text = self.app_state.get_str("update_ytdlp_btn")
-            msg = self.app_state.get_str("update_success") if success else self.app_state.get_str("update_error")
-            color = Colors.GREEN if success else Colors.RED
-            
-            self.page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor=color)
-            self.page.snack_bar.open = True
-            self.page.update()
-            self.update()
-
-        threading.Thread(target=run_update, daemon=True).start()
-
-    def change_language(self, e):
-        self.app_state.set_language(self.lang_dd.value)
-    def toggle_theme(self, e):
-        self.app_state.set_theme("dark" if self.theme_switch.value else "light")
-    def change_path_result(self, e):
-        if e.path:
-            self.app_state.set_download_path(e.path)
-            self.path_display.value = e.path
-            self.update()
-    def clear_history(self, e):
-        self.app_state.clear_history()
-        self.page.snack_bar = ft.SnackBar(ft.Text(self.app_state.get_str("history_cleared")))
-        self.page.snack_bar.open = True
-        self.page.update()

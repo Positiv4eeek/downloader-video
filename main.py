@@ -23,7 +23,6 @@ def main(page: ft.Page):
     page.theme = get_app_theme()
     page.dark_theme = get_app_theme()  # Применяем и для темной темы
     
-    app_state.set_theme(app_state.theme_mode)
     
     # 2. Проверка и установка FFmpeg
     # Если путь не найден в PATH или локально, предлагаем установить
